@@ -3,8 +3,7 @@
 [![Snakemake](https://img.shields.io/badge/snakemake-≥5.7.0-brightgreen.svg)](https://snakemake.bitbucket.io)
 [![Build Status](https://travis-ci.org/snakemake-workflows/quaich.svg?branch=master)](https://travis-ci.org/snakemake-workflows/quaich)
 
-This is the template for a new Snakemake workflow. Replace this text with a comprehensive description covering the purpose and domain.
-Insert your code into the respective folders, i.e. `scripts`, `rules`, and `envs`. Define the entry point of the workflow in the `Snakefile` and the main configuration in the `config.yaml` file.
+This is a `snakemake` based workflow for postprocessing of Hi-C data, designed to work with output of `distiller` (https://github.com/mirnylab/distiller-nf). Unclear whether it will become a real project for public consumption or just an exercise to learn `snakemake`.
 
 ## Authors
 
@@ -12,7 +11,7 @@ Insert your code into the respective folders, i.e. `scripts`, `rules`, and `envs
 
 ## Usage
 
-If you use this workflow in a paper, don't forget to give credits to the authors by citing the URL of this (original) repository and, if available, its DOI (see above).
+If you use this workflow in a paper, don't forget to give credits to the authors by citing the URL of this (original) repository.
 
 ### Step 1: Obtain a copy of this workflow
 
@@ -101,4 +100,3 @@ In case you have also changed or added steps, please consider contributing them 
 ## Testing
 
 Test cases are in the subfolder `.test`. They are automatically executed via continuous integration with [Github Actions](https://github.com/features/actions).
-
