@@ -15,18 +15,19 @@ config["resolutions"] = distiller_config["bin"]["resolutions"]
 config["base_resolution"] = min(config["resolutions"])
 config["eigenvector_resolutions"] = filter(lambda x: x >= config["eigenvector_resolutions_min"],
                                             config["resolutions"])
-
+for key, val in config.items():
+    if key.startswith('path'):
+        config[key] = os.path.normpath(val)
 
 rule all:
     input:
-        lambda wildcards: expand("{expected_path}/{sample}_{resolution}_expected.tsv",
-                                expected_path = config["path_expected"],
+        lambda wildcards: expand(f'{config["path_expected"]}/{{sample}}_{{resolution}}_expected.tsv',
                                 sample = config["samples"],
                                 resolution = config["resolutions"]),
-        lambda wildcards: expand("{eigen_path}/{sample}_{resolution}_eig.cis.vecs.tsv",
-                                eigen_path = config["path_eigenvectors"],
+        lambda wildcards: expand(f'{config["path_eigenvectors"]}/{{sample}}_{{resolution}}_eig.cis.{{ending}}',
                                 sample = config["samples"],
-                                resolution = config["eigenvector_resolutions"])
+                                resolution = config["eigenvector_resolutions"],
+                                ending = ['vecs.tsv', 'lam.txt', 'bw'])
 
 rule make_expected:
     input:
@@ -46,7 +47,8 @@ rule make_eigenvectors:
         cooler = f'{config["path_coolers"]}/{{sample}}.{config["genome"]}.mapq_30.{config["base_resolution"]}.mcool'
     output:
         f'{config["path_eigenvectors"]}/{{sample}}_{{resolution,[0-9]+}}_eig.cis.vecs.tsv',
-        f'{config["path_eigenvectors"]}/{{sample}}_{{resolution,[0-9]+}}_eig.cis.lam.txt'
+        f'{config["path_eigenvectors"]}/{{sample}}_{{resolution,[0-9]+}}_eig.cis.lam.txt',
+        f'{config["path_eigenvectors"]}/{{sample}}_{{resolution,[0-9]+}}_eig.cis.bw'
     params:
         resolution = "{resolution}",
         prefix = lambda wildcards, output: output[0][:-13]
@@ -54,7 +56,7 @@ rule make_eigenvectors:
     resources:
         mem_mb = 8*1024
     shell:
-        "cooltools call-compartments --reference-track {input.reftrack} {input.cooler}::resolutions/{params.resolution} -o {params.prefix}"
+        "cooltools call-compartments --reference-track {input.reftrack} --bigwig {input.cooler}::resolutions/{params.resolution} -o {params.prefix}"
 
 rule make_gc:
     input:
@@ -79,4 +81,3 @@ rule make_bins:
         mem_mb = 8*1024
     shell:
         "cooltools genome binnify {input} {params.resolution} > {output}"
-
