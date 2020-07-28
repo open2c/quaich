@@ -1,83 +1,369 @@
-report: "report/workflow.rst"
-
-#include: "rules/common.smk"
-#include: "rules/other.smk"
-
-import yaml
 import os
-with open(config["distiller_config"], 'r') as f:
-    distiller_config = yaml.load(f, Loader=yaml.FullLoader)
+from os import path
+from glob import glob
+import cooler
+import numpy as np
+import pandas as pd
 
-config["samples"] = distiller_config["input"]["raw_reads_paths"].keys()
-config["merged"] = distiller_config["input"]["library_groups"].keys()
-config["genome"] = distiller_config["input"]["genome"]["assembly_name"]
-config["resolutions"] = distiller_config["bin"]["resolutions"]
-config["base_resolution"] = min(config["resolutions"])
-config["eigenvector_resolutions"] = filter(lambda x: x >= config["eigenvector_resolutions_min"],
-                                            config["resolutions"])
-for key, val in config.items():
-    if key.startswith('path'):
-        config[key] = os.path.normpath(val)
+localrules: all, make_differential_insulation
+
+genome = config['genome']
+path_genomes = config['path_genomes'].rstrip('/')
+
+project_folder = config['project_folder']
+
+coolers_folder = config.get('coolers_folder', path.join(project_folder, 'coolers'))
+beds_folder = config.get('beds_folder', path.join(project_folder, 'beds'))
+expected_folder = config.get('expected_folder', path.join(project_folder, 'expected'))
+pileups_folder = config.get('pileups_folder', path.join(project_folder, 'pileups'))
+eigenvectors_folder = config.get('eigenvectors_folder', path.join(project_folder, 'eigenvectors'))
+insulation_folder = config.get('insulation_folder', path.join(project_folder, 'insulation'))
+
+ignore_resolutions_more_than = config['ignore_resolutions_more_than']
+eigenvector_resolution_limits = config['eigenvector_resolution_limits']
+pileup_resolution_limits = config['pileup_resolution_limits']
+insulation_resolution_limits = config['insulation_resolution_limits']
+
+pileups_mindist, pileups_maxdist = config['pileups_distance_limits']
+
+shifts = config['shifts']
+
+bedpairs_folder = config['bed_pairs']['path']
+
+def get_pairs(bedpairs_input_dict):
+    return bedpairs_input_dict['files']
+
+bedpairs = {name:config['bed_pairs']['input'][name]['files'] for name in config['bed_pairs']['input'].keys()}
+bedpairs_args = {name:' '+config['bed_pairs']['input'][name]['arguments'] for name in config['bed_pairs']['input'].keys()}
+
+def get_files(folder, extension):
+    files = list(map(path.basename, glob(f'{folder}/*{extension}')))
+    return files
+
+coolfiles = get_files(coolers_folder, 'mcool')
+samples = [filename.split('.'+genome)[0] for filename in coolfiles]
+bedfiles = get_files(beds_folder, 'bed')
+
+##### Assume same resolutions in all coolers
+resolutions = config.get('resolutions',
+                         list(map(lambda x: int(x.split('/')[-1]),
+                           cooler.fileops.list_coolers(path.join(coolers_folder,
+                                                       coolfiles[0]))
+                                  )))
+minresolution = min(resolutions)
+resolutions = list(filter(lambda x: x<=ignore_resolutions_more_than, resolutions))
+eigenvector_resolutions = list(filter(lambda x: eigenvector_resolution_limits[0]<=x<=eigenvector_resolution_limits[1],
+                                      resolutions))
+pileup_resolutions = list(filter(lambda x: pileup_resolution_limits[0]<=x<=pileup_resolution_limits[1],
+                                 resolutions))
+insulation_resolutions = list(filter(lambda x: insulation_resolution_limits[0]<=x<=insulation_resolution_limits[1],
+                                 resolutions))
+mindists = [int(pileups_mindist*2**i) for i in np.arange(0, np.log2(pileups_maxdist/pileups_mindist))]
+separations = [f'{mindist}-{mindist*2}' for mindist in mindists]
 
 rule all:
     input:
-        lambda wildcards: expand(f'{config["path_expected"]}/{{sample}}_{{resolution}}_expected.tsv',
-                                sample = config["samples"],
-                                resolution = config["resolutions"]),
-        lambda wildcards: expand(f'{config["path_eigenvectors"]}/{{sample}}_{{resolution}}_eig.cis.{{ending}}',
-                                sample = config["samples"],
-                                resolution = config["eigenvector_resolutions"],
-                                ending = ['vecs.tsv', 'lam.txt', 'bw'])
+        lambda wildcards: expand(f'{expected_folder}/{{sample}}_{{resolution}}.expected.tsv',
+                                sample = samples,
+                                resolution = resolutions),
+        lambda wildcards: expand(f'{eigenvectors_folder}/{{sample}}_{{resolution}}_eigenvectors.cis.{{ending}}',
+                                sample = samples,
+                                resolution = eigenvector_resolutions,
+                                ending = ['vecs.tsv', 'lam.txt', 'bw']),
+        lambda wildcards: expand(f'{insulation_folder}/{{sample}}_{{resolution}}_{{window}}.insulation.tsv',
+                                sample = samples,
+                                resolution = insulation_resolutions,
+                                window = config['insulation_windows']),
+        lambda wildcards: expand(f'{pileups_folder}/{{sample}}-{{resolution}}_over_{{bedfile}}_{shifts}-shifts.np.txt',
+                                sample = samples,
+                                resolution = pileup_resolutions,
+                                bedfile = bedfiles),
+        lambda wildcards: expand(f'{pileups_folder}/{{sample}}-{{resolution}}_over_{{bedfile}}_{shifts}-shifts_dist_{{separation}}.np.txt',
+                                sample = samples,
+                                resolution = pileup_resolutions,
+                                bedfile = bedfiles,
+                                separation = separations),
+        lambda wildcards: expand(f'{pileups_folder}/{{sample}}-{{resolution}}_over_{{bedfile}}_{shifts}-shifts_local.np.txt',
+                                sample = samples,
+                                resolution = pileup_resolutions,
+                                bedfile = bedfiles),
+        lambda wildcards: expand(f'{pileups_folder}/{{sample}}-{{resolution}}_over_{{bedfile}}_expected.np.txt',
+                                sample = samples,
+                                resolution = pileup_resolutions,
+                                bedfile = bedfiles),
+        lambda wildcards: expand(f'{pileups_folder}/{{sample}}-{{resolution}}_over_{{bedfile}}_expected_dist_{{separation}}.np.txt',
+                                sample = samples,
+                                resolution = pileup_resolutions,
+                                bedfile = bedfiles,
+                                separation = separations),
+        lambda wildcards: expand(f'{pileups_folder}/{{sample}}-{{resolution}}_over_{{bedfile}}_expected_local.np.txt',
+                                sample = samples,
+                                resolution = pileup_resolutions,
+                                bedfile = bedfiles),
+        lambda wildcards: expand(f'{pileups_folder}/{{sample}}-{{resolution}}_over-paired_{{pairname}}_expected.np.txt',
+                                sample = samples,
+                                resolution = pileup_resolutions,
+                                pairname = bedpairs.keys()),
+        lambda wildcards: expand(f'{pileups_folder}/{{sample}}-{{resolution}}_over-paired_{{pairname}}_{shifts}-shifts.np.txt',
+                                sample = samples,
+                                resolution = pileup_resolutions,
+                                pairname = bedpairs.keys()),
+        lambda wildcards: expand(f'{pileups_folder}/{{sample}}-{{resolution}}_over-paired_{{pairname}}_expected_dist_{{separation}}.np.txt',
+                                sample = samples,
+                                resolution = pileup_resolutions,
+                                pairname = bedpairs.keys(),
+                                separation = separations),
+        lambda wildcards: expand(f'{pileups_folder}/{{sample}}-{{resolution}}_over-paired_{{pairname}}_{shifts}-shifts_dist_{{separation}}.np.txt',
+                                sample = samples,
+                                resolution = pileup_resolutions,
+                                pairname = bedpairs.keys(),
+                                separation = separations),
+
+rule make_pileups:
+    input:
+        cooler = f'{coolers_folder}/{{sample}}.{genome}.{config["filter"]}.{minresolution}.mcool',
+        expected = f'{expected_folder}/{{sample}}_{{resolution}}.expected.tsv',
+        bedfile = f'{beds_folder}/{{bedfile}}'
+    output:
+        f'{pileups_folder}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_expected.np.txt'
+    params:
+        outname = lambda wildcards, output: output[0].split('/')[-1],
+    threads: 8
+    resources:
+        mem_mb = lambda wildcards, threads: threads*16*1024,
+        runtime = 24*60
+    shell:
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --n_proc {{threads}} --expected {{input.expected}} --outdir {pileups_folder} --outname {{params.outname}}"
+
+rule make_pileups_local:
+    input:
+        cooler = f'{coolers_folder}/{{sample}}.{genome}.{config["filter"]}.{minresolution}.mcool',
+        expected = f'{expected_folder}/{{sample}}_{{resolution}}.expected.tsv',
+        bedfile = f'{beds_folder}/{{bedfile}}'
+    output:
+        f'{pileups_folder}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_expected_local.np.txt'
+    params:
+        outname = lambda wildcards, output: output[0].split('/')[-1],
+    threads: 4
+    resources:
+        mem_mb = lambda wildcards, threads: threads*16*1024,
+        runtime = 24*60
+    shell:
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --local --n_proc {{threads}} --expected {{input.expected}} --outdir {pileups_folder} --outname {{params.outname}}"
+
+rule make_pileups_distance:
+    input:
+        cooler = f'{coolers_folder}/{{sample}}.{genome}.{config["filter"]}.{minresolution}.mcool',
+        expected = f'{expected_folder}/{{sample}}_{{resolution}}.expected.tsv',
+        bedfile = f'{beds_folder}/{{bedfile}}'
+    output:
+        f'{pileups_folder}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_expected_dist_{{mindist,[0-9]+}}-{{maxdist,[0-9]+}}.np.txt'
+    params:
+        outname = lambda wildcards, output: output[0].split('/')[-1],
+    threads: 4
+    resources:
+        mem_mb = lambda wildcards, threads: threads*16*1024,
+        runtime = 24*60
+    shell:
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --n_proc {{threads}} --expected {{input.expected}} --mindist {{wildcards.mindist}} --maxdist {{wildcards.maxdist}} --outdir {pileups_folder} --outname {{params.outname}}"
+
+rule make_pileups_shifts:
+    input:
+        cooler = f'{coolers_folder}/{{sample}}.{genome}.{config["filter"]}.{minresolution}.mcool',
+        bedfile = f'{beds_folder}/{{bedfile}}'
+    output:
+        f'{pileups_folder}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_{shifts}-shifts.np.txt'
+    params:
+        outname = lambda wildcards, output: output[0].split('/')[-1],
+    threads: 8
+    resources:
+        mem_mb = lambda wildcards, threads: threads*16*1024,
+        runtime = 24*60
+    shell:
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --n_proc {{threads}} --nshifts {shifts} --outdir {pileups_folder} --outname {{params.outname}}"
+
+rule make_pileups_shifts_local:
+    input:
+        cooler = f'{coolers_folder}/{{sample}}.{genome}.{config["filter"]}.{minresolution}.mcool',
+        bedfile = f'{beds_folder}/{{bedfile}}'
+    output:
+        f'{pileups_folder}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_{shifts}-shifts_local.np.txt'
+    params:
+        outname = lambda wildcards, output: output[0].split('/')[-1],
+    threads: 4
+    resources:
+        mem_mb = lambda wildcards, threads: threads*16*1024,
+        runtime = 24*60
+    shell:
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --local --n_proc {{threads}} --nshifts {shifts} --outdir {pileups_folder} --outname {{params.outname}}"
+
+rule make_pileups_shifts_distance:
+    input:
+        cooler = f'{coolers_folder}/{{sample}}.{genome}.{config["filter"]}.{minresolution}.mcool',
+        bedfile = f'{beds_folder}/{{bedfile}}'
+    output:
+        f'{pileups_folder}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_{shifts}-shifts_dist_{{mindist,[0-9]+}}-{{maxdist,[0-9]+}}.np.txt'
+    params:
+        outname = lambda wildcards, output: output[0].split('/')[-1],
+    threads: 4
+    resources:
+        mem_mb = lambda wildcards, threads: threads*16*1024,
+        runtime = 24*60
+    shell:
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --n_proc {{threads}} --nshifts {shifts} --mindist {{wildcards.mindist}} --maxdist {{wildcards.maxdist}} --outdir {pileups_folder} --outname {{params.outname}}"
+
+rule make_pileups_bed2:
+    input:
+        cooler = f'{coolers_folder}/{{sample}}.{genome}.{config["filter"]}.{minresolution}.mcool',
+        expected = f'{expected_folder}/{{sample}}_{{resolution}}.expected.tsv',
+        bed1 = lambda wildcards: path.join(bedpairs_folder, bedpairs[wildcards.pairname][0]),
+        bed2 = lambda wildcards: path.join(bedpairs_folder, bedpairs[wildcards.pairname][1]),
+    output:
+        f'{pileups_folder}/{{sample}}-{{resolution,[0-9]+}}_over-paired_{{pairname}}_expected.np.txt'
+    params:
+        outname = lambda wildcards, output: output[0].split('/')[-1],
+        args = lambda wildcards: bedpairs_args[wildcards.pairname]
+    threads: 8
+    resources:
+        mem_mb = lambda wildcards, threads: threads*16*1024,
+        runtime = 24*60
+    shell:
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bed1}} --bed2 {{input.bed2}} --n_proc {{threads}} --expected {{input.expected}} --outdir {pileups_folder} --outname {{params.outname}} {{params.args}}"
+
+rule make_pileups_bed2_distance:
+    input:
+        cooler = f'{coolers_folder}/{{sample}}.{genome}.{config["filter"]}.{minresolution}.mcool',
+        expected = f'{expected_folder}/{{sample}}_{{resolution}}.expected.tsv',
+        bed1 = lambda wildcards: path.join(bedpairs_folder, bedpairs[wildcards.pairname][0]),
+        bed2 = lambda wildcards: path.join(bedpairs_folder, bedpairs[wildcards.pairname][1]),
+    output:
+        f'{pileups_folder}/{{sample}}-{{resolution,[0-9]+}}_over-paired_{{pairname}}_expected_dist_{{mindist,[0-9]+}}-{{maxdist,[0-9]+}}.np.txt'
+    params:
+        outname = lambda wildcards, output: output[0].split('/')[-1],
+        args = lambda wildcards: bedpairs_args[wildcards.pairname]
+    threads: 4
+    resources:
+        mem_mb = lambda wildcards, threads: threads*16*1024,
+        runtime = 24*60
+    shell:
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bed1}} --bed2 {{input.bed2}} --n_proc {{threads}} --expected {{input.expected}} --mindist {{wildcards.mindist}} --maxdist {{wildcards.maxdist}} --outdir {pileups_folder} --outname {{params.outname}} {{params.args}}"
+
+rule make_pileups_bed2_shifts:
+    input:
+        cooler = f'{coolers_folder}/{{sample}}.{genome}.{config["filter"]}.{minresolution}.mcool',
+        bed1 = lambda wildcards: path.join(bedpairs_folder, bedpairs[wildcards.pairname][0]),
+        bed2 = lambda wildcards: path.join(bedpairs_folder, bedpairs[wildcards.pairname][1]),
+    output:
+        f'{pileups_folder}/{{sample}}-{{resolution,[0-9]+}}_over-paired_{{pairname}}_{shifts}-shifts.np.txt'
+    params:
+        outname = lambda wildcards, output: output[0].split('/')[-1],
+        args = lambda wildcards: bedpairs_args[wildcards.pairname]
+    threads: 8
+    resources:
+        mem_mb = lambda wildcards, threads: threads*16*1024,
+        runtime = 24*60
+    shell:
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bed1}} --bed2 {{input.bed2}} --n_proc {{threads}} --nshifts {shifts} --outdir {pileups_folder} --outname {{params.outname}} {{params.args}}"
+
+rule make_pileups_bed2_shifts_distance:
+    input:
+        cooler = f'{coolers_folder}/{{sample}}.{genome}.{config["filter"]}.{minresolution}.mcool',
+        bed1 = lambda wildcards: path.join(bedpairs_folder, bedpairs[wildcards.pairname][0]),
+        bed2 = lambda wildcards: path.join(bedpairs_folder, bedpairs[wildcards.pairname][1]),
+    output:
+        f'{pileups_folder}/{{sample}}-{{resolution,[0-9]+}}_over-paired_{{pairname}}_{shifts}-shifts_dist_{{mindist,[0-9]+}}-{{maxdist,[0-9]+}}.np.txt'
+    params:
+        outname = lambda wildcards, output: output[0].split('/')[-1],
+        args = lambda wildcards: bedpairs_args[wildcards.pairname]
+    threads: 4
+    resources:
+        mem_mb = lambda wildcards, threads: threads*16*1024,
+        runtime = 24*60
+    shell:
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bed1}} --bed2 {{input.bed2}} --n_proc {{threads}} --nshifts {shifts} --mindist {{wildcards.mindist}} --maxdist {{wildcards.maxdist}} --outdir {pileups_folder} --outname {{params.outname}} {{params.args}}"
+
+rule make_differential_insulation:
+    input:
+        insulation_WT = f'{insulation_folder}/{{sampleWT}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.insulation.tsv',
+        insulation_KO = f'{insulation_folder}/{{sampleKO}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.insulation.tsv'
+    output:
+        f'{beds_folder}/Insulation_{{sampleWT}}_not_{{sampleKO}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.bed'
+    threads: 1
+    resources:
+        mem_mb = 1024,
+        runtime = 60
+    run:
+        insWT = pd.read_csv(input.insulation_WT, sep='\t')
+        insWT = insWT[~insWT['is_bad_bin']].drop(columns=['is_bad_bin'])
+        insKO = pd.read_csv(input.insulation_KO, sep='\t')
+        insKO = insKO[~insKO['is_bad_bin']].drop(columns=['is_bad_bin'])
+        ins = pd.merge(insWT, insKO, suffixes=('WT', 'KO'), on=['chrom', 'start', 'end'])
+        diff_ins = ins[(ins[f'boundary_strength_{wildcards.window}WT']/ins[f'boundary_strength_{wildcards.window}KO']>=5) |
+        ((ins[f'boundary_strength_{wildcards.window}WT']>0.1) & np.isnan(ins[f'boundary_strength_{wildcards.window}KO']))]
+        diff_ins[['chrom', 'start', 'end']].to_csv(output[0], header=False, index=False, sep='\t')
+
+rule make_insulation:
+    input:
+        f'{coolers_folder}/{{sample}}.{genome}.{config["filter"]}.{minresolution}.mcool',
+    output:
+        f'{insulation_folder}/{{sample}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.insulation.tsv'
+    threads: 1
+    resources:
+        mem_mb = 32*1024,
+        runtime = 60
+    shell:
+        "cooltools diamond-insulation {input}::resolutions/{wildcards.resolution} {wildcards.window} > {output}"
 
 rule make_expected:
     input:
-        f'{config["path_coolers"]}/{{sample}}.{config["genome"]}.mapq_30.{config["base_resolution"]}.mcool'
+        f'{coolers_folder}/{{sample}}.{genome}.{config["filter"]}.{minresolution}.mcool',
     output:
-        f'{config["path_expected"]}/{{sample}}_{{resolution,[0-9]+}}_expected.tsv'
-    params: resolution = "{resolution}"
+        f'{expected_folder}/{{sample}}_{{resolution,[0-9]+}}.expected.tsv'
     threads: 4
     resources:
-        mem_mb = lambda wildcards, threads: threads*8*1024
+        mem_mb = lambda wildcards, threads: threads*8*1024,
+        runtime = 60
     shell:
-        "cooltools compute-expected -p {threads} {input}::resolutions/{params.resolution} --ignore-diags 0 -o {output}"
+        "cooltools compute-expected -p {threads} {input}::resolutions/{wildcards.resolution} --ignore-diags 0 -o {output}"
 
 rule make_eigenvectors:
     input:
-        reftrack = f'{config["path_genomes"]}/{config["genome"]}/gc/{config["genome"]}_{{resolution,[0-9]+}}_gc.bedgraph',
-        cooler = f'{config["path_coolers"]}/{{sample}}.{config["genome"]}.mapq_30.{config["base_resolution"]}.mcool'
+        reftrack = f'{path_genomes}/{genome}/gc/{genome}_{{resolution,[0-9]+}}_gc.bedgraph',
+        cooler = f'{coolers_folder}/{{sample}}.{genome}.{config["filter"]}.{minresolution}.mcool',
     output:
-        f'{config["path_eigenvectors"]}/{{sample}}_{{resolution,[0-9]+}}_eig.cis.vecs.tsv',
-        f'{config["path_eigenvectors"]}/{{sample}}_{{resolution,[0-9]+}}_eig.cis.lam.txt',
-        f'{config["path_eigenvectors"]}/{{sample}}_{{resolution,[0-9]+}}_eig.cis.bw'
+        f'{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.vecs.tsv',
+        f'{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.lam.txt',
+        f'{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.bw'
     params:
-        resolution = "{resolution}",
         prefix = lambda wildcards, output: output[0][:-13]
     threads: 1
     resources:
-        mem_mb = 8*1024
+        mem_mb = 8*1024,
+        runtime = 60
     shell:
-        "cooltools call-compartments --reference-track {input.reftrack} --bigwig {input.cooler}::resolutions/{params.resolution} -o {params.prefix}"
+        "cooltools call-compartments --reference-track {input.reftrack} --bigwig {input.cooler}::resolutions/{wildcards.resolution} -o {params.prefix}"
 
 rule make_gc:
     input:
-        fasta = f'{config["path_genomes"]}/{config["genome"]}/{config["genome"]}.fa',
-        bins = f'{config["path_genomes"]}/{config["genome"]}/bins/{config["genome"]}_{{resolution,[0-9]+}}_bins.bed'
+        fasta = f'{path_genomes}/{genome}/{genome}.fa',
+        bins = f'{path_genomes}/{genome}/bins/{genome}_{{resolution,[0-9]+}}_bins.bed'
     output:
-        f'{config["path_genomes"]}/{config["genome"]}/gc/{config["genome"]}_{{resolution,[0-9]+}}_gc.bedgraph'
+        f'{path_genomes}/{genome}/gc/{genome}_{{resolution,[0-9]+}}_gc.bedgraph'
     threads: 1
     resources:
-        mem_mb = 8*1024
+        mem_mb = 8*1024,
+        runtime = 60
     shell:
         "cooltools genome gc {input.bins} {input.fasta} > {output}"
 
 rule make_bins:
     input:
-        chromsizes = distiller_config["input"]["genome"]["chrom_sizes_path"]
+        chromsizes = f'{path_genomes}/{genome}/chrfile.txt'
     output:
-        f'{config["path_genomes"]}/{config["genome"]}/bins/{config["genome"]}_{{resolution,[0-9]+}}_bins.bed'
-    params: resolution = "{resolution}"
+        f'{path_genomes}/{genome}/bins/{genome}_{{resolution,[0-9]+}}_bins.bed'
     threads: 1
     resources:
-        mem_mb = 8*1024
+        mem_mb = 8*1024,
+        runtime = 60
     shell:
-        "cooltools genome binnify {input} {params.resolution} > {output}"
+        "cooltools genome binnify {input} {wildcards.resolution} > {output}"

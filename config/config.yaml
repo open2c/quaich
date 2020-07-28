@@ -1,6 +1,51 @@
-distiller_config: "/exports/igmm/eddie/wendy-lab/ilia/remainers/distiller_project.yml"
-path_genomes: "/exports/igmm/eddie/wendy-lab/ilia/genomes"
-path_coolers: "/exports/igmm/eddie/wendy-lab/ilia/remainers/coolers"
-path_expected: "/exports/igmm/eddie/wendy-lab/ilia/remainers/coolers/expected"
-path_eigenvectors: "/exports/igmm/eddie/wendy-lab/ilia/remainers/coolers/eigenvectors"
-eigenvector_resolutions_min: 50000
+genome: mm10
+path_genomes: /exports/igmm/eddie/wendy-lab/ilia/genomes/
+
+project_folder: /exports/igmm/eddie/wendy-lab/ilia/h3k115ac/
+
+filter: mapq_30
+
+resolutions:
+    - 10000000
+    - 5000000
+    - 2500000
+    - 1000000
+    - 500000
+    - 250000
+    - 100000
+    - 50000
+    - 25000
+    - 10000
+    - 5000
+    - 2000
+    - 1000
+
+ignore_resolutions_more_than: 1000000
+eigenvector_resolution_limits:
+    - 50000
+    - 250000
+pileup_resolution_limits:
+    - 1000
+    - 5000
+insulation_resolution_limits:
+    - 10000
+    - 100000
+insulation_windows:
+    - 100000
+    - 200000
+    - 500000
+    - 1000000
+pileups_distance_limits:
+    - 12500
+    - 102400000
+
+shifts: 1
+
+bed_pairs:
+    path: /exports/igmm/eddie/wendy-lab/ilia/h3k115ac/beds/bed_pairs/
+    input:
+        convergent_CTCF:
+            arguments: ""
+            files:
+                - CTCF_ES_pos_mm10.bed
+                - CTCF_ES_neg_mm10.bed
