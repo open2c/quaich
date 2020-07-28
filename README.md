@@ -3,7 +3,7 @@
 [![Snakemake](https://img.shields.io/badge/snakemake-≥5.7.0-brightgreen.svg)](https://snakemake.bitbucket.io)
 [![Build Status](https://travis-ci.org/snakemake-workflows/quaich.svg?branch=master)](https://travis-ci.org/snakemake-workflows/quaich)
 
-This is a `snakemake` based workflow for postprocessing of Hi-C data, designed to work with output of `distiller` (https://github.com/mirnylab/distiller-nf). Unclear whether it will become a real project for public consumption or just an exercise to learn `snakemake`.
+This is a `snakemake` based workflow for postprocessing of Hi-C data of .mcool files, that can be generated using `distiller` (https://github.com/mirnylab/distiller-nf). Unclear whether it will become a real project for public consumption or just an exercise to learn `snakemake`.
 
 ## Authors
 
