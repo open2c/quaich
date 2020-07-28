@@ -323,8 +323,8 @@ rule call_loops:
 
 rule make_differential_insulation:
     input:
-        insulation_WT = f'{insulation_folder}/{{sampleWT}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.insulation.tsv',
-        insulation_KO = f'{insulation_folder}/{{sampleKO}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.insulation.tsv'
+        insulation_WT = f'{insulation_folder}/{{sampleWT}}_{{resolution}}_{{window}}.insulation.tsv',
+        insulation_KO = f'{insulation_folder}/{{sampleKO}}_{{resolution}}_{{window}}.insulation.tsv'
     output:
         f'{beds_folder}/Insulation_{{sampleWT}}_not_{{sampleKO}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.bed'
     threads: 1
@@ -343,7 +343,7 @@ rule make_differential_insulation:
 
 rule make_tads:
     input:
-        insulation = f'{insulation_folder}/{{sample}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.insulation.tsv'
+        insulation = f'{insulation_folder}/{{sample}}_{{resolution}}_{{window}}.insulation.tsv'
     output:
         f'{beds_folder}/TADs_{{sample}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.bed'
     threads: 1
@@ -389,7 +389,7 @@ rule make_expected:
 
 rule make_eigenvectors:
     input:
-        reftrack = f'{path_genomes}/{genome}/gc/{genome}_{{resolution,[0-9]+}}_gc.bedgraph',
+        reftrack = f'{path_genomes}/{genome}/gc/{genome}_{{resolution}}_gc.bedgraph',
         cooler = f'{coolers_folder}/{{sample}}.{genome}.{config["filter"]}.{minresolution}.mcool',
     output:
         f'{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.vecs.tsv',
@@ -407,7 +407,7 @@ rule make_eigenvectors:
 rule make_gc:
     input:
         fasta = f'{path_genomes}/{genome}/{genome}.fa',
-        bins = f'{path_genomes}/{genome}/bins/{genome}_{{resolution,[0-9]+}}_bins.bed'
+        bins = f'{path_genomes}/{genome}/bins/{genome}_{{resolution}}_bins.bed'
     output:
         f'{path_genomes}/{genome}/gc/{genome}_{{resolution,[0-9]+}}_gc.bedgraph'
     threads: 1
