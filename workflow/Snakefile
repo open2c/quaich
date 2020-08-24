@@ -32,15 +32,15 @@ outfolders = {tad_folder_name:tad_folder,
               beds_folder_name:beds_folder}
 
 ignore_resolutions_more_than = config['ignore_resolutions_more_than']
-eigenvector_resolution_limits = config['eigenvector_resolution_limits']
-pileup_resolution_limits = config['pileup_resolution_limits']
-insulation_resolution_limits = config['insulation_resolution_limits']
+eigenvector_resolution_limits = config['eigenvector']['resolution_limits']
+pileup_resolution_limits = config['pileups']['resolution_limits']
+insulation_resolution_limits = config['insulation']['resolution_limits']
 
-pileups_mindist, pileups_maxdist = config['pileups_distance_limits']
-saddle_mindist, saddle_maxdist = config['saddle_distance_limits']
+pileups_mindist, pileups_maxdist = config['pileups']['distance_limits']
+saddle_mindist, saddle_maxdist = config['saddle']['distance_limits']
 # bedpe_pileups_mindist, bedpe_pileups_maxdist = config['bedpe_pileups_distance_limits']
 
-shifts = config['shifts']
+shifts = config['pileups']['shifts']
 
 bedpairs_folder = path.normpath(config['bed_pairs']['path'])
 bedpairs_folder_name = path.basename(bedpairs_folder)
@@ -86,14 +86,14 @@ diff_boundaries = expand(f"{pileups_folder}/{boundary_folder_name}/{{sample}}-{{
                         sample = samples,
                         resolution = pileup_resolutions,
                         insul_resolution=insulation_resolutions,
-                        window=config['insulation_windows'],
+                        window=config['insulation']['windows'],
                         norm=['expected', f'{shifts}-shifts'])
 tads = expand(f"{pileups_folder}/{tad_folder_name}/{{sample}}-{{resolution}}_over_TADs_{{sampleTADs}}_{{insul_resolution}}_{{window}}.bed_{{norm}}_local_rescaled.np.txt",
                 sample = samples,
                 resolution = pileup_resolutions,
                 sampleTADs=config['call_TADs_samples'],
                 insul_resolution=insulation_resolutions,
-                window=config['insulation_windows'],
+                window=config['insulation']['windows'],
                 norm=['expected', f'{shifts}-shifts'])
 loops = expand(f"{pileups_folder}/{loop_folder_name}/{{sample}}-{{resolution}}_over_Loops_{{sampleLoops}}_{{resolutionLoops}}.bedpe_{{norm}}{{mode}}.np.txt",
                 sample = samples,
@@ -118,7 +118,7 @@ paired_beds = expand(f'{pileups_folder}/{bedpairs_folder_name}/{{sample}}-{{reso
 saddles = expand(f'{saddles_folder}/{{sample}}_{{resolution}}_{{bins}}{{dist}}.{{ending}}',
                         sample = samples,
                         resolution = eigenvector_resolutions,
-                        bins = config['saddle_bins'],
+                        bins = config['saddle']['bins'],
                         dist = saddle_separations+[""],
                         ending = ['saddledump.npz', 'digitized.tsv'])
 
@@ -143,7 +143,7 @@ rule all:
         lambda wildcards: expand(f'{insulation_folder}/{{sample}}_{{resolution}}_{{window}}.insulation.tsv',
                                 sample = samples,
                                 resolution = insulation_resolutions,
-                                window = config['insulation_windows']),
+                                window = config['insulation']['windows']),
         lambda wildcards: diff_boundaries,
         lambda wildcards: tads,
         lambda wildcards: loops,
@@ -200,7 +200,7 @@ rule make_pileups_local_rescaled:
         mem_mb = lambda wildcards, threads: threads*16*1024,
         runtime = 24*60
     shell:
-        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --local --rescale --rescale_pad {config['rescale_pad']} --n_proc {{threads}} --expected {{input.expected}} --outdir {{params.outdir}} --outname {{params.outname}}"
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --local --rescale --rescale_pad {config['pileups']['rescale_pad']} --n_proc {{threads}} --expected {{input.expected}} --outdir {{params.outdir}} --outname {{params.outname}}"
 
 rule make_pileups_distance:
     input:
@@ -265,7 +265,7 @@ rule make_pileups_shifts_local_rescaled:
         mem_mb = lambda wildcards, threads: threads*16*1024,
         runtime = 24*60
     shell:
-        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --local --rescale --rescale_pad {config['rescale_pad']} --n_proc {{threads}} --nshifts {shifts} --outdir {{params.outdir}} --outname {{params.outname}}"
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --local --rescale --rescale_pad {config['pileups']['rescale_pad']} --n_proc {{threads}} --nshifts {shifts} --outdir {{params.outdir}} --outname {{params.outname}}"
 
 rule make_pileups_shifts_distance:
     input:
@@ -361,7 +361,7 @@ rule call_loops:
     input:
         cooler = f'{coolers_folder}/{{sample}}.{genome}.{config["filter"]}.{minresolution}.mcool',
     output:
-        f'{loop_folder}/loops_{{sample}}_{{resolution,[0-9]+}}.bedpe',
+        f'{loop_folder}/Loops_{{sample}}_{{resolution,[0-9]+}}.bedpe',
     threads: 4
     resources:
         mem_mb = lambda wildcards, threads: threads*16*1024,
@@ -386,8 +386,8 @@ rule make_differential_insulation:
         insKO = pd.read_csv(input.insulation_KO, sep='\t')
         insKO = insKO[~insKO['is_bad_bin']].drop(columns=['is_bad_bin'])
         ins = pd.merge(insWT, insKO, suffixes=('WT', 'KO'), on=['chrom', 'start', 'end'])
-        diff_ins = ins[(ins[f'boundary_strength_{wildcards.window}WT']/ins[f'boundary_strength_{wildcards.window}KO']>=config['insulation_fold_change_threshold']) |
-        ((ins[f'boundary_strength_{wildcards.window}WT']>config['insulation_strength_threshold']) & np.isnan(ins[f'boundary_strength_{wildcards.window}KO']))]
+        diff_ins = ins[(ins[f'boundary_strength_{wildcards.window}WT']/ins[f'boundary_strength_{wildcards.window}KO']>=config['insulation']['fold_change_threshold']) |
+        ((ins[f'boundary_strength_{wildcards.window}WT']>config['insulation']['strength_threshold']) & np.isnan(ins[f'boundary_strength_{wildcards.window}KO']))]
         diff_ins[['chrom', 'start', 'end']].to_csv(output[0], header=False, index=False, sep='\t')
 
 rule make_tads:
@@ -402,11 +402,11 @@ rule make_tads:
     run:
         ins = pd.read_csv(input.insulation, sep='\t')
         ins = ins[~ins['is_bad_bin']].drop(columns=['is_bad_bin'])
-        ins = ins[ins[f'boundary_strength_{wildcards.window}']>config['insulation_strength_threshold']][['chrom', 'start', 'end']]
+        ins = ins[ins[f'boundary_strength_{wildcards.window}']>config['insulation']['strength_threshold']][['chrom', 'start', 'end']]
         tads = ins.groupby('chrom').apply(lambda x: pd.concat([x[:-1].reset_index(drop=True), x[1:].reset_index(drop=True)], axis=1, ignore_index=True)).reset_index(drop=True)
         tads.columns=[['chrom1', 'start1', 'end1', 'chrom2', 'start2', 'end2']]
         tads.columns = tads.columns.get_level_values(0)
-        tads = tads[(tads['start2']-tads['start1'])<=config['max_tad_length']].reset_index(drop=True)
+        tads = tads[(tads['start2']-tads['start1'])<=config['insulation']['max_tad_length']].reset_index(drop=True)
         tads['start'] = (tads['start1']+tads['end1'])//2
         tads['end'] = (tads['start2']+tads['end2'])//2
         tads = tads[['chrom1', 'start', 'end']]
@@ -418,11 +418,11 @@ rule make_insulation:
     output:
         f'{insulation_folder}/{{sample}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.insulation.tsv'
     params:
-        chunksize = config['insulation_chunksize']
+        chunksize = lambda wildcards: config['insulation'].get('chunksize', 20000000)
     threads: 1
     resources:
         mem_mb = 32*1024,
-        runtime = 60
+        runtime = 240
     shell:
         "cooltools diamond-insulation {input}::resolutions/{wildcards.resolution} {wildcards.window} --chunksize {params.chunksize} > {output}"
 
@@ -437,7 +437,7 @@ rule make_saddles:
     params:
         prefix = lambda wildcards, output: output['saddle'][:-15],
         distargs = lambda wildcards: split_dist(wildcards.dist, '--min-dist', '--max-dist'),
-        args = config['saddle_options']
+        args = config['saddle']['args']
     threads: 1
     resources:
         mem_mb = 8*1024,
