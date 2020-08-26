@@ -37,19 +37,19 @@ pileup_resolution_limits = config['pileups']['resolution_limits']
 insulation_resolution_limits = config['insulation']['resolution_limits']
 
 pileups_mindist, pileups_maxdist = config['pileups']['distance_limits']
-saddle_mindist, saddle_maxdist = config['saddle']['distance_limits']
+saddle_mindist, saddle_maxdist = config['saddles']['distance_limits']
 # bedpe_pileups_mindist, bedpe_pileups_maxdist = config['bedpe_pileups_distance_limits']
 
 shifts = config['pileups']['shifts']
 
-bedpairs_folder = path.normpath(config['bed_pairs']['path'])
+bedpairs_folder = path.normpath(config['pileups']['bed_pairs']['path'])
 bedpairs_folder_name = path.basename(bedpairs_folder)
 
 def get_pairs(bedpairs_input_dict):
     return bedpairs_input_dict['files']
 
-bedpairs = {name:config['bed_pairs']['input'][name]['files'] for name in config['bed_pairs']['input'].keys()}
-bedpairs_args = {name:' '+config['bed_pairs']['input'][name]['arguments'] for name in config['bed_pairs']['input'].keys()}
+bedpairs = {name:config['pileups']['bed_pairs']['input'][name]['files'] for name in config['pileups']['bed_pairs']['input'].keys()}
+bedpairs_args = {name:' '+config['pileups']['bed_pairs']['input'][name]['arguments'] for name in config['pileups']['bed_pairs']['input'].keys()}
 
 def get_files(folder, extension):
     files = list(map(path.basename, glob(f'{folder}/*{extension}')))
@@ -81,46 +81,61 @@ saddle_separations = [f'_dist_{mindist}-{mindist*2}' for mindist in saddle_mindi
 # bedpe_mindists = [int(bedpe_pileups_mindist*2**i) for i in np.arange(0, np.log2(bedpe_pileups_maxdist/bedpe_pileups_mindist))]
 # bedpe_separations = [f'{mindist}-{mindist*2}' for mindist in bedpe_mindists]
 
-diff_boundaries = expand(f"{pileups_folder}/{boundary_folder_name}/{{sample}}-{{resolution}}_over_Insulation_{config['compare_boundaries_samples'][0]}_not_"
-                         f"{config['compare_boundaries_samples'][1]}_{{insul_resolution}}_{{window}}.bed_{{norm}}_local.np.txt",
+diff_boundaries = expand(f"{boundary_folder}/Insulation_{config['compare_boundaries']['samples'][0]}_not_"
+                         f"{config['compare_boundaries']['samples'][1]}_{{insul_resolution}}_{{window}}.bed",
+                        insul_resolution=insulation_resolutions,
+                        window=config['insulation']['windows']) if config['compare_boundaries']['do'] else []
+diff_boundaries_pileups = expand(f"{pileups_folder}/{boundary_folder_name}/{{sample}}-{{resolution}}_over_Insulation_{config['compare_boundaries']['samples'][0]}_not_"
+                         f"{config['compare_boundaries']['samples'][1]}_{{insul_resolution}}_{{window}}.bed_{{norm}}_local.np.txt",
                         sample = samples,
                         resolution = pileup_resolutions,
                         insul_resolution=insulation_resolutions,
                         window=config['insulation']['windows'],
-                        norm=['expected', f'{shifts}-shifts'])
-tads = expand(f"{pileups_folder}/{tad_folder_name}/{{sample}}-{{resolution}}_over_TADs_{{sampleTADs}}_{{insul_resolution}}_{{window}}.bed_{{norm}}_local_rescaled.np.txt",
+                        norm=['expected', f'{shifts}-shifts']) if config['compare_boundaries']['do'] and config['pileups']['do'] else []
+
+tads = expand(f"{tad_folder}/TADs_{{sampleTADs}}_{{insul_resolution}}_{{window}}.bed",
+                sampleTADs=config['call_TADs']['samples'],
+                insul_resolution=insulation_resolutions,
+                window=config['insulation']['windows']) if config['call_TADs']['do']  else []
+tads_pileups = expand(f"{pileups_folder}/{tad_folder_name}/{{sample}}-{{resolution}}_over_TADs_{{sampleTADs}}_{{insul_resolution}}_{{window}}.bed_{{norm}}_local_rescaled.np.txt",
                 sample = samples,
                 resolution = pileup_resolutions,
-                sampleTADs=config['call_TADs_samples'],
+                sampleTADs=config['call_TADs']['samples'],
                 insul_resolution=insulation_resolutions,
                 window=config['insulation']['windows'],
-                norm=['expected', f'{shifts}-shifts'])
-loops = expand(f"{pileups_folder}/{loop_folder_name}/{{sample}}-{{resolution}}_over_Loops_{{sampleLoops}}_{{resolutionLoops}}.bedpe_{{norm}}{{mode}}.np.txt",
+                norm=['expected', f'{shifts}-shifts']) if config['call_TADs']['do'] and config['pileups']['do'] else []
+
+loops = expand(f"{loop_folder}/Loops_{{sampleLoops}}_{{resolutionLoops}}.bedpe",
+                sampleLoops=config['call_dots']['samples'],
+                resolutionLoops=config['call_dots']['resolution']) if config['call_dots']['do'] else []
+
+loops_pileups = expand(f"{pileups_folder}/{loop_folder_name}/{{sample}}-{{resolution}}_over_Loops_{{sampleLoops}}_{{resolutionLoops}}.bedpe_{{norm}}{{mode}}.np.txt",
                 sample = samples,
                 resolution = pileup_resolutions,
-                sampleLoops=config['call_loops_samples'],
-                resolutionLoops=config['loop_call_resolution'],
+                sampleLoops=config['call_dots']['samples'],
+                resolutionLoops=config['call_dots']['resolution'],
                 norm=['expected', f'{shifts}-shifts'],
-                mode=['']+separations)
-beds = expand(f"{pileups_folder}/{beds_folder_name}/{{sample}}-{{resolution}}_over_{{bedfile}}_{{norm}}{{mode}}.np.txt",
+                mode=['']+separations) if config['call_dots']['do'] and config['pileups']['do'] else []
+
+beds_pileups = expand(f"{pileups_folder}/{beds_folder_name}/{{sample}}-{{resolution}}_over_{{bedfile}}_{{norm}}{{mode}}.np.txt",
                 sample = samples,
                 resolution = pileup_resolutions,
                 bedfile=bedfiles,
                 norm=['expected', f'{shifts}-shifts'],
-                mode=['', '_local']+separations)
-paired_beds = expand(f'{pileups_folder}/{bedpairs_folder_name}/{{sample}}-{{resolution}}_over-paired_{{pairname}}_{{norm}}{{mode}}.np.txt',
-                        sample = samples,
-                        resolution = pileup_resolutions,
-                        pairname = bedpairs.keys(),
-                        separation = separations,
-                        norm=['expected', f'{shifts}-shifts'],
-                        mode=['']+separations)
+                mode=['', '_local']+separations) if config['pileups']['do'] else []
+paired_beds_pileups = expand(f'{pileups_folder}/{bedpairs_folder_name}/{{sample}}-{{resolution}}_over-paired_{{pairname}}_{{norm}}{{mode}}.np.txt',
+                sample = samples,
+                resolution = pileup_resolutions,
+                pairname = bedpairs.keys(),
+                separation = separations,
+                norm=['expected', f'{shifts}-shifts'],
+                mode=['']+separations) if config['pileups']['do'] else []
 saddles = expand(f'{saddles_folder}/{{sample}}_{{resolution}}_{{bins}}{{dist}}.{{ending}}',
-                        sample = samples,
-                        resolution = eigenvector_resolutions,
-                        bins = config['saddle']['bins'],
-                        dist = saddle_separations+[""],
-                        ending = ['saddledump.npz', 'digitized.tsv'])
+                sample = samples,
+                resolution = eigenvector_resolutions,
+                bins = config['saddles']['bins'],
+                dist = saddle_separations+[""],
+                ending = ['saddledump.npz', 'digitized.tsv']) if config['saddles']['do'] else []
 
 def split_dist(dist_wildcard, mindist_arg='--mindist', maxdist_arg='--maxdist'):
     if dist_wildcard=="":
@@ -133,22 +148,14 @@ def split_dist(dist_wildcard, mindist_arg='--mindist', maxdist_arg='--maxdist'):
 
 rule all:
     input:
-        lambda wildcards: expand(f'{expected_folder}/{{sample}}_{{resolution}}.expected.tsv',
-                                sample = samples,
-                                resolution = resolutions),
-        lambda wildcards: expand(f'{eigenvectors_folder}/{{sample}}_{{resolution}}_eigenvectors.cis.{{ending}}',
-                                sample = samples,
-                                resolution = eigenvector_resolutions,
-                                ending = ['vecs.tsv', 'lam.txt', 'bw']),
-        lambda wildcards: expand(f'{insulation_folder}/{{sample}}_{{resolution}}_{{window}}.insulation.tsv',
-                                sample = samples,
-                                resolution = insulation_resolutions,
-                                window = config['insulation']['windows']),
         lambda wildcards: diff_boundaries,
+        lambda wildcards: diff_boundaries_pileups,
         lambda wildcards: tads,
+        lambda wildcards: tads_pileups,
         lambda wildcards: loops,
-        lambda wildcards: beds,
-        lambda wildcards: paired_beds,
+        lambda wildcards: loops_pileups,
+        lambda wildcards: beds_pileups,
+        lambda wildcards: paired_beds_pileups,
         lambda wildcards: saddles,
 
 rule make_pileups:
@@ -406,7 +413,7 @@ rule make_tads:
         tads = ins.groupby('chrom').apply(lambda x: pd.concat([x[:-1].reset_index(drop=True), x[1:].reset_index(drop=True)], axis=1, ignore_index=True)).reset_index(drop=True)
         tads.columns=[['chrom1', 'start1', 'end1', 'chrom2', 'start2', 'end2']]
         tads.columns = tads.columns.get_level_values(0)
-        tads = tads[(tads['start2']-tads['start1'])<=config['insulation']['max_tad_length']].reset_index(drop=True)
+        tads = tads[(tads['start2']-tads['start1'])<=config['call_TADs']['max_tad_length']].reset_index(drop=True)
         tads['start'] = (tads['start1']+tads['end1'])//2
         tads['end'] = (tads['start2']+tads['end2'])//2
         tads = tads[['chrom1', 'start', 'end']]
@@ -437,7 +444,7 @@ rule make_saddles:
     params:
         prefix = lambda wildcards, output: output['saddle'][:-15],
         distargs = lambda wildcards: split_dist(wildcards.dist, '--min-dist', '--max-dist'),
-        args = config['saddle']['args']
+        args = config['saddles']['args']
     threads: 1
     resources:
         mem_mb = 8*1024,
