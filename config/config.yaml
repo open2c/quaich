@@ -21,26 +21,53 @@ resolutions:
     - 1000
 
 ignore_resolutions_more_than: 1000000
-eigenvector_resolution_limits:
-    - 50000
-    - 250000
-pileup_resolution_limits:
-    - 1000
-    - 5000
-insulation_resolution_limits:
-    - 10000
-    - 100000
-insulation_windows:
-    - 100000
-    - 200000
-    - 500000
-    - 1000000
-pileups_distance_limits:
-    - 12500
-    - 102400000
+eigenvector:
+    do: True
+    resolution_limits:
+        - 50000
+        - 250000
+saddle:
+    do: True
+    bins:
+        - 10
+        - 25
+        - 50
+        - 100
+    distance_limits:
+        - 1600000
+        - 102400000
+    args: --strength --quantiles --qrange 0.01 0.99
 
-shifts: 1
+pileups:
+    do: True
+    resolution_limits:
+        - 1000
+        - 5000
+    distance_limits:
+        - 12500
+        - 102400000
+    shifts: 1
+    rescale_pad: 1
 
+insulation:
+    do: True
+    resolution_limits:
+        - 10000
+        - 50000
+    windows:
+        - 200000
+        - 500000
+        - 1000000
+    strength_threshold: 0.1
+    fold_change_threshold: 5
+    # chunksize: 1000000000
+
+call_dots:
+    do: True
+    resolution: 5000
+    samples:
+        - Bonev_ESC
+        - Hsieh_mESCs_microC
 bed_pairs:
     path: /exports/igmm/eddie/wendy-lab/ilia/h3k115ac/beds/bed_pairs/
     input:
@@ -49,3 +76,35 @@ bed_pairs:
             files:
                 - CTCF_ES_pos_mm10.bed
                 - CTCF_ES_neg_mm10.bed
+loopability:
+    do: True
+    path: /exports/igmm/eddie/wendy-lab/ilia/h3k115ac/beds/
+    n_random_samples: 20
+    resolutions:
+        - 1000
+        - 2000
+        - 5000
+    shifts: 1
+    samples:
+        - Bonev_ESC
+        - Hsieh_mESCs_microC
+    input:
+        ES_CRE_ENCODE_5kbmerged_longrange:
+            arguments: "--subset 10000 --mindist 2000000"
+            file: ES_CRE_ENCODE_5kbmerged_mm10.bed
+        ES_CRE_ENCODE_5kbmerged_shortrange:
+            arguments: "--subset 10000 --maxdist 2000000"
+            file: ES_CRE_ENCODE_5kbmerged_mm10.bed
+
+compare_boundaries:
+    do: True
+    samples:
+        - Rhodes_Tir1+Aux
+        - Rhodes_Scc1+Aux
+
+call_TADs:
+    do: True
+    max_tad_length: 1500000
+    samples:
+        - Bonev_ESC
+        - Hsieh_mESCs_microC
