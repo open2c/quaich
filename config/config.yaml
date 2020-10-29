@@ -21,6 +21,9 @@ resolutions:
     - 1000
 
 ignore_resolutions_more_than: 1000000
+ignore_chroms:
+    - chrM
+    - chrY
 eigenvector:
     do: True
     resolution_limits:
@@ -63,7 +66,13 @@ insulation:
     # chunksize: 1000000000
 
 call_dots:
-    do: True
+    methods:
+        chromosight:
+            do: True
+        mustache:
+            do: True
+            max_dist: 10000000
+            arguments: "-pt 0.05 -st 0.8"
     resolution: 5000
     samples:
         - Bonev_ESC
