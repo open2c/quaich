@@ -5,10 +5,14 @@ import cooler
 import numpy as np
 import pandas as pd
 
-localrules: all, make_differential_insulation, make_tads
+localrules: all, make_differential_insulation, make_tads, call_loops_mustache
 
 genome = config['genome']
 path_genomes = config['path_genomes'].rstrip('/')
+
+chroms = pd.read_csv(f'{path_genomes}/{genome}/chrfile.txt', sep='\t',
+                         names=['chrom', 'start', 'end'])['chrom'].values
+chroms = list(filter(lambda x: x not in config['ignore_chroms'], chroms))
 
 project_folder = config['project_folder']
 
@@ -83,6 +87,7 @@ insulation_resolutions = list(filter(lambda x: insulation_resolution_limits[0]<=
 mindists = [int(pileups_mindist*2**i) for i in np.arange(0, np.log2(pileups_maxdist/pileups_mindist))]
 separations = [f'_dist_{mindist}-{mindist*2}' for mindist in mindists]
 
+# chroms = cooler.Cooler(f'{coolers_folder}/{coolfiles[0]}::resolutions/{resolutions[0]}').chroms()[:]
 
 saddle_mindists = [int(saddle_mindist*2**i) for i in np.arange(0, np.log2(saddle_maxdist/saddle_mindist))]
 saddle_separations = [f'_dist_{mindist}-{mindist*2}' for mindist in saddle_mindists]
@@ -112,18 +117,24 @@ tads_pileups = expand(f"{pileups_folder}/{tad_folder_name}/{{sample}}-{{resoluti
                 insul_resolution=insulation_resolutions,
                 window=config['insulation']['windows'],
                 norm=['expected', f'{shifts}-shifts']) if config['call_TADs']['do'] and config['pileups']['do'] else []
+dot_methods = [m for m in config['call_dots']['methods'] if config['call_dots']['methods'][m]['do']]
+if dot_methods:
+    loops = expand(f"{loop_folder}/Loops_{{method}}_{{sampleLoops}}_{{resolutionLoops}}.bedpe",
+                    method = dot_methods,
+                    sampleLoops=config['call_dots']['samples'],
+                    resolutionLoops=config['call_dots']['resolution'])
 
-loops = expand(f"{loop_folder}/Loops_{{sampleLoops}}_{{resolutionLoops}}.bedpe",
-                sampleLoops=config['call_dots']['samples'],
-                resolutionLoops=config['call_dots']['resolution']) if config['call_dots']['do'] else []
-
-loops_pileups = expand(f"{pileups_folder}/{loop_folder_name}/{{sample}}-{{resolution}}_over_Loops_{{sampleLoops}}_{{resolutionLoops}}.bedpe_{{norm}}{{mode}}.np.txt",
-                sample = samples,
-                resolution = pileup_resolutions,
-                sampleLoops=config['call_dots']['samples'],
-                resolutionLoops=config['call_dots']['resolution'],
-                norm=['expected', f'{shifts}-shifts'],
-                mode=['']+separations) if config['call_dots']['do'] and config['pileups']['do'] else []
+    loops_pileups = expand(f"{pileups_folder}/{loop_folder_name}/{{sample}}-{{resolution}}_over_Loops_{{method}}_{{sampleLoops}}_{{resolutionLoops}}.bedpe_{{norm}}{{mode}}.np.txt",
+                    sample = samples,
+                    resolution = pileup_resolutions,
+                    method = dot_methods,
+                    sampleLoops=config['call_dots']['samples'],
+                    resolutionLoops=config['call_dots']['resolution'],
+                    norm=['expected', f'{shifts}-shifts'],
+                    mode=['']+separations) if config['pileups']['do'] else []
+else:
+    loops = []
+    loops_pileups = []
 
 beds_pileups = expand(f"{pileups_folder}/{beds_folder_name}/{{sample}}-{{resolution}}_over_{{bedfile}}_{{norm}}{{mode}}.np.txt",
                 sample = samples,
@@ -415,11 +426,11 @@ rule make_pileups_bed2_shifts_distance:
     shell:
         f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bed1}} --bed2 {{input.bed2}} --n_proc {{threads}} --nshifts {shifts} --mindist {{wildcards.mindist}} --maxdist {{wildcards.maxdist}} --outdir {{params.outdir}} --outname {{params.outname}} {{params.args}}"
 
-rule call_loops:
+rule call_loops_chromosight:
     input:
         cooler = f'{coolers_folder}/{{sample}}.{genome}.{config["filter"]}.{minresolution}.mcool',
     output:
-        f'{loop_folder}/Loops_{{sample}}_{{resolution,[0-9]+}}.bedpe',
+        f'{loop_folder}/Loops_chromosight_{{sample}}_{{resolution,[0-9]+}}.bedpe',
     threads: 4
     resources:
         mem_mb = lambda wildcards, threads: threads*16*1024,
@@ -427,6 +438,33 @@ rule call_loops:
     shell:
         f"chromosight detect --pattern loops --no-plotting -t {{threads}} {{input.cooler}}::resolutions/{{wildcards.resolution}} {loop_folder}/loops_{{wildcards.sample}}_{{wildcards.resolution}} &&"
         f"tail -n +2 {loop_folder}/loops_{{wildcards.sample}}_{{wildcards.resolution}}/loops_out.txt | cut -f1-6 > {{output}}"
+
+rule call_loops_mustache_chrom:
+    input:
+        cooler = f'{coolers_folder}/{{sample}}.{genome}.{config["filter"]}.{minresolution}.mcool',
+    output:
+        temp(f'{loop_folder}/Mustache_bychr/Loops_mustache_{{sample}}_{{resolution,[0-9]+}}_{{chrom}}.bedpe'),
+    threads: 4
+    params:
+        args = config['call_dots']['methods']['mustache']['arguments'],
+        dist = config['call_dots']['methods']['mustache']['max_dist']
+    resources:
+        mem_mb = lambda wildcards, threads: threads*16*1024,
+        runtime = 24*60
+    shell:
+        f"python3 -m mustache -p {{threads}} -f {{input.cooler}} -r {{wildcards.resolution}} "
+        f"-ch {{wildcards.chrom}} -d {{params.dist}} {{params.args}} -o {{output}}"
+
+rule call_loops_mustache:
+    input:
+        lambda wildcards: [f'{loop_folder}/Mustache_bychr/Loops_mustache_{{sample}}_{{resolution,[0-9]+}}_{chrom}.bedpe' for chrom in chroms],
+    output:
+        f'{loop_folder}/Loops_mustache_{{sample}}_{{resolution,[0-9]+}}.bedpe',
+    resources:
+        mem_mb = 1024,
+        runtime = 60
+    shell:
+        f"awk 'FNR-1' {{input}} | cut -f1-6 > {{output}}"
 
 rule make_differential_insulation:
     input:
