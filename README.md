@@ -26,11 +26,12 @@ Configure the workflow according to your needs via editing the files in the `con
 
 Install Snakemake and other requirements using [conda](https://conda.io/projects/conda/en/latest/user-guide/install/index.html):
 
-    conda create -c bioconda -c conda-forge -n quaich --file requirements.txt
+    conda env create -f environment.yml
+
+This will create an environment `quaich` where you can launch the pipeline.
+Note that if you want to run mustache, you need to install it to the same environment following the instructions from [mustache Github](https://github.com/ay-lab/mustache#installation)
 
 For Snakemake installation details, see the [instructions in the Snakemake documentation](https://snakemake.readthedocs.io/en/stable/getting_started/installation.html).
-
-Note that if you want to run mustache, you need to install it to the same environment following the instructions from [mustache Github](https://github.com/ay-lab/mustache#installation)
 
 ### Step 4: Execute workflow
 
