@@ -1,0 +1,16 @@
+name: quaich
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python>=3.7
+  - pip
+  - cython
+  - snakemake
+  - cooler
+  - chromosight
+  - ucsc-bedgraphtobigwig
+  - pip:
+    - https://github.com/open2c/cooltools/archive/master.zip
+    - https://github.com/open2c/coolpuppy/archive/master.zip
