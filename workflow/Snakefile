@@ -55,13 +55,13 @@ def get_pairs(bedpairs_input_dict):
 bedpairs = {name:config['bed_pairs']['input'][name]['files'] for name in config['bed_pairs']['input'].keys()}
 bedpairs_args = {name:' '+config['bed_pairs']['input'][name]['arguments'] for name in config['bed_pairs']['input'].keys()}
 
+if config['loopability']['do']:
+	loopability_folder = path.normpath(config['loopability']['path'])
+	loopability_folder_name = path.basename(loopability_folder)
 
-loopability_folder = path.normpath(config['loopability']['path'])
-loopability_folder_name = path.basename(loopability_folder)
-
-loopability = {name:config['loopability']['input'][name]['file'] for name in config['loopability']['input'].keys()}
-loopability_args = {name:' '+config['loopability']['input'][name]['arguments'] for name in config['loopability']['input'].keys()}
-loopability_shifts = config['loopability']['shifts']
+	loopability = {name:config['loopability']['input'][name]['file'] for name in config['loopability']['input'].keys()}
+	loopability_args = {name:' '+config['loopability']['input'][name]['arguments'] for name in config['loopability']['input'].keys()}
+	loopability_shifts = config['loopability']['shifts']
 
 def get_files(folder, extension):
     files = list(map(path.basename, glob(f'{folder}/*{extension}')))
@@ -154,13 +154,14 @@ loopability_tables = expand(f'{pileups_folder}/{loopability_folder_name}/loopabi
                 resolution = config['loopability']['resolutions'],
                 bedname = loopability.keys(),
                 norm=['expected', f'{loopability_shifts}-shifts'],
-                seed = np.arange(config['loopability']['n_random_samples']))
+                seed = np.arange(config['loopability']['n_random_samples'])) if config['loopability']['do'] else []
 saddles = expand(f'{saddles_folder}/{{sample}}_{{resolution}}_{{bins}}{{dist}}.{{ending}}',
                 sample = samples,
                 resolution = eigenvector_resolutions,
                 bins = config['saddle']['bins'],
                 dist = saddle_separations+[""],
                 ending = ['saddledump.npz', 'digitized.tsv']) if config['saddle']['do'] else []
+
 
 def split_dist(dist_wildcard, mindist_arg='--mindist', maxdist_arg='--maxdist'):
     if dist_wildcard=="":
