@@ -10,7 +10,7 @@ localrules: all, make_differential_insulation, make_tads, call_loops_mustache
 genome = config['genome']
 path_genomes = config['path_genomes'].rstrip('/')
 
-chroms = pd.read_csv(f'{path_genomes}/{genome}/chrfile.txt', sep='\t',
+chroms = pd.read_csv(f'{path_genomes}/{genome}/{genome}.reduced.chrom.sizes', sep='\t',
                          names=['chrom', 'start', 'end'])['chrom'].values
 chroms = list(filter(lambda x: x not in config['ignore_chroms'], chroms))
 
@@ -586,7 +586,7 @@ rule make_gc:
 
 rule make_bins:
     input:
-        chromsizes = f'{path_genomes}/{genome}/chrfile.txt'
+        chromsizes = f'{path_genomes}/{genome}/{genome}.reduced.chrom.sizes'
     output:
         f'{path_genomes}/{genome}/bins/{genome}_{{resolution,[0-9]+}}_bins.bed'
     threads: 1
