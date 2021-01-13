@@ -3,8 +3,29 @@ path_genome_folder: /exports/igmm/eddie/wendy-lab/ilia/genomes/hg38
 path_genome_fasta: /exports/igmm/eddie/wendy-lab/ilia/genomes/hg38/hg38.fa
 chromsizes: /exports/igmm/eddie/wendy-lab/ilia/genomes/hg38/chrfile.txt
 ignore_chroms:
-    - chrM
+    - chr1
+    - chr3
+    - chr4
+    - chr5
+    - chr6
+    - chr7
+    - chr8
+    - chr9
+    - chr10
+    - chr11
+    - chr12
+    - chr13
+    - chr14
+    - chr15
+    - chr16
+    - chr18
+    - chr19
+    - chr20
+    - chr21
+    - chr22
+    - chrX
     - chrY
+    - chrM
 
 samples: config/samples.tsv
 
