@@ -11,6 +11,8 @@ dependencies:
   - cooler
   - chromosight
   - ucsc-bedgraphtobigwig
+  - scikit-image
+  - tqdm
   - pip:
-    - https://github.com/open2c/cooltools/archive/master.zip
+    - cooltools
     - https://github.com/open2c/coolpuppy/archive/master.zip

@@ -1,34 +1,42 @@
-genome: mm10
-path_genomes: /exports/igmm/eddie/wendy-lab/ilia/genomes/
-
-project_folder: /exports/igmm/eddie/wendy-lab/ilia/h3k115ac/
-
-filter: mapq_30
-
-resolutions:
-    - 10000000
-    - 5000000
-    - 2500000
-    - 1000000
-    - 500000
-    - 250000
-    - 100000
-    - 50000
-    - 25000
-    - 10000
-    - 5000
-    - 2000
-    - 1000
-
-ignore_resolutions_more_than: 1000000
+genome: hg38
+path_genome_folder: /exports/igmm/eddie/wendy-lab/ilia/genomes/hg38
+path_genome_fasta: /exports/igmm/eddie/wendy-lab/ilia/genomes/hg38/hg38.fa
+chromsizes: /exports/igmm/eddie/wendy-lab/ilia/genomes/hg38/chrfile.txt
 ignore_chroms:
     - chrM
     - chrY
+
+samples: config/samples.tsv
+
+# folder definition is optional
+# by default everything is done using inputs in inputs/
+# and results saved in results/
+inputs_folder: inputs
+beds_folder: inputs/beds
+coolers_folder: inputs/coolers
+
+project_folder: results
+expected_folder: results/expected
+pileups_folder: results/pileups
+eigenvectors_folder: results/eigenvectors
+saddles_folder: results/saddles
+insulation_folder: results/insulation
+tad_folder: results/tads
+loop_folder: results/loops
+boundary_folder: results/boundaries
+
+resolutions:
+    - 1000000
+    - 100000
+    - 10000
+    - 1000
+ignore_resolutions_more_than: 1000000
+
 eigenvector:
     do: True
     resolution_limits:
         - 50000
-        - 250000
+        - 1000000
 saddle:
     do: True
     bins:
@@ -45,25 +53,49 @@ pileups:
     do: True
     resolution_limits:
         - 1000
-        - 5000
+        - 10000
     distance_limits:
         - 12500
         - 102400000
     shifts: 1
     rescale_pad: 1
 
+    bed_pairs:
+        do: False # Can use even with pileups['do'] == False
+        path: /exports/igmm/eddie/wendy-lab/ilia/Rif1/beds/bed_pairs/
+        input:
+            convergent_CTCF:
+                arguments: ""
+                files:
+                    -  CTCF_ES_pos_mm10.bed
+                    -  CTCF_ES_neg_mm10.bed
+loopability:
+    do: False
+    path: /exports/igmm/eddie/wendy-lab/ilia/Rif1/loopability/
+    n_random_samples: 20
+    resolutions:
+        - 1000
+        - 10000
+    shifts: 1
+    samples:
+    input:
+        input_name:
+            arguments: "--subset 10000 --mindist 2000000"
+            file: file_path
+
 insulation:
     do: True
-    resolution_limits:
-        - 10000
-        - 50000
-    windows:
-        - 200000
-        - 500000
-        - 1000000
-    strength_threshold: 0.1
-    fold_change_threshold: 5
-    # chunksize: 1000000000
+    resolutions:
+        1000:
+            - 3000 # What window sizes to do for what resolution
+            - 5000
+            - 10000
+            - 25000
+        10000:
+            - 50000
+            - 100000
+    strength_threshold: 'Li' # Choose between a specific float, Li or Otsu, see https://github.com/open2c/open2c_examples/blob/master/Insulation_and_boundaries.ipynb
+    chunksize: 1000000000
 
 call_dots:
     methods:
@@ -73,47 +105,19 @@ call_dots:
             do: True
             max_dist: 10000000
             arguments: "-pt 0.05 -st 0.8"
-    resolution: 5000
+    resolution: 10000
     samples:
-        - Bonev_ESC
-        - Hsieh_mESCs_microC
-bed_pairs:
-    path: /exports/igmm/eddie/wendy-lab/ilia/h3k115ac/beds/bed_pairs/
-    input:
-        convergent_CTCF:
-            arguments: ""
-            files:
-                - CTCF_ES_pos_mm10.bed
-                - CTCF_ES_neg_mm10.bed
-loopability:
-    do: True
-    path: /exports/igmm/eddie/wendy-lab/ilia/h3k115ac/beds/
-    n_random_samples: 20
-    resolutions:
-        - 1000
-        - 2000
-        - 5000
-    shifts: 1
-    samples:
-        - Bonev_ESC
-        - Hsieh_mESCs_microC
-    input:
-        ES_CRE_ENCODE_5kbmerged_longrange:
-            arguments: "--subset 10000 --mindist 2000000"
-            file: ES_CRE_ENCODE_5kbmerged_mm10.bed
-        ES_CRE_ENCODE_5kbmerged_shortrange:
-            arguments: "--subset 10000 --maxdist 2000000"
-            file: ES_CRE_ENCODE_5kbmerged_mm10.bed
+        - test
 
 compare_boundaries:
-    do: True
+    do: False
     samples:
-        - Rhodes_Tir1+Aux
-        - Rhodes_Scc1+Aux
+        - test
+        - test
+    fold_change_threshold: 5
 
-call_TADs:
+call_TADs: # By just combining strong boundaries
     do: True
     max_tad_length: 1500000
     samples:
-        - Bonev_ESC
-        - Hsieh_mESCs_microC
+        - test
