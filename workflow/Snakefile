@@ -83,14 +83,14 @@ if config['pileups']['do'] or config['pileups']['bed_pairs']['do']:
     separations = [f'_dist_{mindist}-{mindist*2}' for mindist in mindists]
 
 if config['pileups']['bed_pairs']['do']:
-    bedpairs_folder = path.normpath(config['bed_pairs']['path'])
+    bedpairs_folder = path.normpath(config['pileups']['bed_pairs']['path'])
     bedpairs_folder_name = path.basename(bedpairs_folder)
 
     def get_pairs(bedpairs_input_dict):
         return bedpairs_input_dict['files']
 
-    bedpairs = {name:config['bed_pairs']['input'][name]['files'] for name in config['bed_pairs']['input'].keys()}
-    bedpairs_args = {name:' '+config['bed_pairs']['input'][name]['arguments'] for name in config['bed_pairs']['input'].keys()}
+    bedpairs = {name:config['pileups']['bed_pairs']['input'][name]['files'] for name in config['pileups']['bed_pairs']['input'].keys()}
+    bedpairs_args = {name:' '+config['pileups']['bed_pairs']['input'][name]['arguments'] for name in config['pileups']['bed_pairs']['input'].keys()}
 
 if config['loopability']['do']:
     loopability_folder = path.normpath(config['loopability']['path'])
