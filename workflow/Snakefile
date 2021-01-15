@@ -450,8 +450,8 @@ rule call_loops_chromosight:
         mem_mb = lambda wildcards, threads: threads*16*1024,
         runtime = 24*60
     shell:
-        f"chromosight detect --pattern loops --no-plotting -t {{threads}} {{input.cooler}}::resolutions/{{wildcards.resolution}} {loop_folder}/loops_{{wildcards.sample}}_{{wildcards.resolution}} &&"
-        f"tail -n +2 {loop_folder}/loops_{{wildcards.sample}}_{{wildcards.resolution}}/loops_out.txt | cut -f1-6 > {{output}}"
+        f"chromosight detect --pattern loops --no-plotting -t {{threads}} {{input.cooler}}::resolutions/{{wildcards.resolution}} {loop_folder}/loops_chromosight_{{wildcards.sample}}_{{wildcards.resolution}} &&"
+        f"tail -n +2 {loop_folder}/loops_chromosight_{{wildcards.sample}}_{{wildcards.resolution}}.tsv | cut -f1-6 > {{output}}"
 
 rule call_loops_mustache_chrom:
     input:
