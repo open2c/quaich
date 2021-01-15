@@ -3,7 +3,7 @@
 [![Snakemake](https://img.shields.io/badge/snakemake-≥5.7.0-brightgreen.svg)](https://snakemake.bitbucket.io)
 [![Build Status](https://travis-ci.org/snakemake-workflows/quaich.svg?branch=master)](https://travis-ci.org/snakemake-workflows/quaich)
 
-This is a `snakemake` based workflow for postprocessing of Hi-C data of .mcool files, that can be generated using `distiller` (https://github.com/mirnylab/distiller-nf). Unclear whether it will become a real project for public consumption or just an exercise to learn `snakemake`.
+This is a `snakemake` based workflow for postprocessing of Hi-C data stored in .mcool files, that can be generated using `distiller` (https://github.com/mirnylab/distiller-nf). It uses `cooltools` for calculation of compartments and insulation. Compartments are used to create saddles, and insulation is used to annotate domains (TADs), demarcated by strong insulation boundaries. It calls Hi-C peaks (peaks, dots) using `chromosight` and `mustache`. Uses `coolpuppy` to generate lots of pileups.
 
 ## Authors
 
@@ -26,10 +26,9 @@ Configure the workflow according to your needs via editing the files in the `con
 
 Install Snakemake and other requirements using [conda](https://conda.io/projects/conda/en/latest/user-guide/install/index.html):
 
-    conda env create -f environment.yml
+    conda env create -f workflow/envs/environment.yml
 
 This will create an environment `quaich` where you can launch the pipeline.
-Note that if you want to run mustache, you need to install it to the same environment following the instructions from [mustache Github](https://github.com/ay-lab/mustache#installation)
 
 For Snakemake installation details, see the [instructions in the Snakemake documentation](https://snakemake.readthedocs.io/en/stable/getting_started/installation.html).
 
@@ -59,14 +58,14 @@ If you not only want to fix the software stack but also the underlying OS, use
 
     snakemake --use-conda --use-singularity
 
-in combination with any of the modes above.
+in combination with any of the modes above. *(Not yet available)*
 See the [Snakemake documentation](https://snakemake.readthedocs.io/en/stable/executable.html) for further details.
 
 Run with custom configuration file: 
 
     snakemake --configfile config/config.yaml
 
-### Step 5: Investigate results
+### Step 5: Investigate results *not available yet*
 
 After successful execution, you can create a self-contained interactive HTML report with all results via:
 
