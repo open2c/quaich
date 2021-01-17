@@ -1,3 +1,4 @@
+###### Import libraries #######
 import os
 from os import path
 from glob import glob
@@ -5,14 +6,9 @@ import cooler
 import numpy as np
 import pandas as pd
 
-localrules: all, make_differential_insulation, make_tads, call_loops_mustache, download_data
+localrules: all, make_differential_insulation, make_tads, call_loops_mustache, get_bed_data, get_cool_data
 
-genome = config['genome']
-
-chroms = pd.read_csv(f'{config["chromsizes"]}', sep='\t',
-                         names=['chrom', 'start', 'end'])['chrom'].values
-chroms = list(filter(lambda x: x not in config['ignore_chroms'], chroms))
-
+###### Read config parameters #######
 project_folder = config.get('project_folder', 'results')
 inputs_folder = config.get('inputs_folder', 'inputs')
 coolers_folder = config.get('coolers_folder', path.join(inputs_folder, 'coolers'))
@@ -34,34 +30,37 @@ outfolders = {tad_folder_name:tad_folder,
               boundary_folder_name:boundary_folder,
               beds_folder_name:beds_folder}
 
+### Input genome
+genome = config['genome']
+chroms = pd.read_csv(f'{config["chromsizes"]}', sep='\t',
+                         names=['chrom', 'start', 'end'])['chrom'].values
+chroms = list(filter(lambda x: x not in config.get('ignore_chroms', []), chroms))
+
+### Input cool files
 samples_df = pd.read_csv(config['samples'], sep='\t', header=0).set_index("sample", drop=False)
-if 'url' in samples_df.columns:
-    if not np.all((~samples_df[['location', 'url']].isna()).sum(axis=1)==1):
-        raise ValueError("Please specify either URL or location of multicooler files.")
-    urldict = dict(samples_df[~samples_df['url'].isnull()]['url'])
-    remote_cool_file_dict = {sample:f'{coolers_folder}/{sample}.mcool' for sample in urldict.keys()}
-    coolfiles_dict = dict(samples_df[~samples_df['location'].isnull()]['location'])
-    coolfiles_dict.update(remote_cool_file_dict)
-else:
-    coolfiles_dict = dict(samples_df['location'])
+coollinks_dict = dict(samples_df['file'])
 samples = list(samples_df.index)
-coolfiles = [coolfiles_dict[sample] for sample in samples]
+coolfiles = [f"{coolers_folder}/{sample}.mcool" for sample in samples]
+coolfiles_dict = dict(zip(samples, coolfiles))
 
-ignore_resolutions_more_than = config['ignore_resolutions_more_than']
-
-# bedpe_pileups_mindist, bedpe_pileups_maxdist = config['bedpe_pileups_distance_limits']
-
-
+### Input bed files
 def get_files(folder, extension):
     files = list(map(path.basename, glob(f'{folder}/*{extension}')))
     return files
-#
-#
-bedfiles = get_files(beds_folder, 'bed')
-##### Assume same resolutions in all coolers
-resolutions = config['resolutions']
+bedfiles_local = get_files(beds_folder, 'bed')
+
+bedfiles_df = pd.read_csv(config['annotations'], sep='\t', header=0)
+bedlinks_dict = {f"{row.bedname}.bed":row.file for i, row in bedfiles_df.iterrows()}
+bedfiles_additional = list(bedlinks_dict.keys())
+bedfiles = list(set(bedfiles_local + bedfiles_additional)) # Retain only unique filenames
+# bedpe_pileups_mindist, bedpe_pileups_maxdist = config['bedpe_pileups_distance_limits']
+
+### Data resolutions
+ignore_resolutions_more_than = config['ignore_resolutions_more_than']
+resolutions = config['resolutions'] ##### Assume same resolutions in all coolers
 minresolution = min(resolutions)
 resolutions = list(filter(lambda x: x<=ignore_resolutions_more_than, resolutions))
+
 
 if config['eigenvector']['do']:
     eigenvector_resolution_limits = config['eigenvector']['resolution_limits']
@@ -122,8 +121,8 @@ diff_boundaries_pileups = expand(f"{pileups_folder}/{boundary_folder_name}/{{sam
                                  norm=['expected', f'{shifts}-shifts']) if config['compare_boundaries']['do'] and config['pileups']['do'] else []
 
 tads = expand(f"{tad_folder}/TADs_{{sampleTADs}}_{{insul_res_win}}.bed",
-sampleTADs=config['call_TADs']['samples'],
-insul_res_win=insul_res_win) if config['call_TADs']['do'] else []
+                sampleTADs=config['call_TADs']['samples'],
+                insul_res_win=insul_res_win) if config['call_TADs']['do'] else []
 tads_pileups = expand(f"{pileups_folder}/{tad_folder_name}/{{sample}}-{{resolution}}_over_TADs_{{sampleTADs}}_{{insul_res_win}}.bed_{{norm}}_local_rescaled.np.txt",
                       sample = samples,
                       resolution = pileup_resolutions,
@@ -133,9 +132,9 @@ tads_pileups = expand(f"{pileups_folder}/{tad_folder_name}/{{sample}}-{{resoluti
 dot_methods = [m for m in config['call_dots']['methods'] if config['call_dots']['methods'][m]['do']]
 if dot_methods:
     loops = expand(f"{loop_folder}/Loops_{{method}}_{{sampleLoops}}_{{resolutionLoops}}.bedpe",
-method = dot_methods,
-sampleLoops=config['call_dots']['samples'],
-resolutionLoops=config['call_dots']['resolution'])
+                    method = dot_methods,
+                    sampleLoops=config['call_dots']['samples'],
+                    resolutionLoops=config['call_dots']['resolution'])
 
     loops_pileups = expand(f"{pileups_folder}/{loop_folder_name}/{{sample}}-{{resolution}}_over_Loops_{{method}}_{{sampleLoops}}_{{resolutionLoops}}.bedpe_{{norm}}{{mode}}.np.txt",
                            sample = samples,
@@ -150,11 +149,11 @@ else:
     loops_pileups = []
 
 beds_pileups = expand(f"{pileups_folder}/{beds_folder_name}/{{sample}}-{{resolution}}_over_{{bedfile}}_{{norm}}{{mode}}.np.txt",
-sample = samples,
-resolution = pileup_resolutions,
-bedfile=bedfiles,
-norm=['expected', f'{shifts}-shifts'],
-mode=['', '_local']+separations) if config['pileups']['do'] else []
+                        sample = samples,
+                        resolution = pileup_resolutions,
+                        bedfile=bedfiles,
+                        norm=['expected', f'{shifts}-shifts'],
+                        mode=['', '_local']+separations) if config['pileups']['do'] else []
 paired_beds_pileups = expand(f'{pileups_folder}/{bedpairs_folder_name}/{{sample}}-{{resolution}}_over-paired_{{pairname}}_{{norm}}{{mode}}.np.txt',
                              sample = samples,
                              resolution = pileup_resolutions,
@@ -185,6 +184,8 @@ def split_dist(dist_wildcard, mindist_arg='--mindist', maxdist_arg='--maxdist'):
         mindist, maxdist = dists.split('-')
         return f'{mindist_arg} {mindist} {maxdist_arg} {maxdist}'
 
+
+###### Define rules #######
 rule all:
     input:
         lambda wildcards: diff_boundaries,
@@ -633,7 +634,40 @@ rule make_bins:
     shell:
         "cooltools genome binnify {input} {wildcards.resolution} > {output}"
 
-rule download_data:
+
+def download_file(file, local_filename):
+    import requests
+    import tqdm
+    import re
+    print('downloading:', file, 'as ', local_filename)
+    with requests.get(file, stream=True) as r:
+        extension = '.gz' if re.findall("filename=(.+)", r.headers['content-disposition'])[0].endswith('.gz') else ''
+        r.raise_for_status()
+        with open(local_filename+extension,'wb') as f:
+            for chunk in tqdm.tqdm(r.iter_content(chunk_size=8192)):
+                f.write(chunk)
+    return local_filename+extension
+
+def get_file(file, output):
+    from urllib.parse import urlparse
+    parsed_path = urlparse(file)
+    if file==output:
+        exit()
+    if parsed_path.scheme == "":
+        if file.endswith('.gz'):
+            shell(f"cp {file} {output}.gz; gzip -d {output}.gz")
+        else:
+            shell(f"cp {file} {output}")
+    elif parsed_path.scheme == "http" or parsed_path.scheme == "https":
+        print(output)
+        downloaded_file = download_file(file, output)
+        if downloaded_file.endswith('.gz'):
+            shell(f"gzip -d {output}.gz")
+    else:
+        raise Exception(f"Unable to download from: {file}\nScheme {parsed_url.scheme} is not supported")
+
+
+rule get_cool_data:
     output:
         f'{coolers_folder}/{{sample}}.mcool'
     threads: 1
@@ -641,17 +675,18 @@ rule download_data:
         mem_mb = 256,
         runtime = 60
     params:
-        url = lambda wildcards: urldict[wildcards.sample]
+        file = lambda wildcards: coollinks_dict[wildcards.sample]
     run:
-        import requests
-        import tqdm
-        def download_file(url, local_filename):
-            print('downloading:', url, 'as ', local_filename)
-            with requests.get(url, stream=True) as r:
-                r.raise_for_status()
-                with open(local_filename, 'wb') as f:
-                    for chunk in tqdm.tqdm(r.iter_content(chunk_size=8192)):
-                        f.write(chunk)
-            return local_filename
-        print(output)
-        download_file(params.url, str(output))
+        get_file(str(params.file), str(output))
+
+rule get_bed_data:
+    output:
+        f'{beds_folder}/{{bedfile}}'
+    threads: 1
+    resources:
+        mem_mb = 256,
+        runtime = 60
+    params:
+        file = lambda wildcards: bedlinks_dict[wildcards.bedfile]
+    run:
+        get_file(str(params.file), str(output))

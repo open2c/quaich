@@ -27,7 +27,15 @@ ignore_chroms:
     - chrY
     - chrM
 
+# Samples file with two columns: sample name ("sample") and path/url with cool file ("file").
+# If the file is local path, it will be copied to the input location. If it's URL, it will be downloaded.
+# If the file is already downloaded/copied, it will not be overwritten.
+# The downloaded/copied file will be stored as {coolers_folder}/{sample}.mcool
+# You can specify empty file, if the file is already there.
 samples: config/samples.tsv
+# Annotations file with two columns: annotation name ("bedname") and "file" (URLs or local file)
+# Bed files will be stored in beds_folder
+annotations: config/annotations.tsv
 
 # folder definition is optional
 # by default everything is done using inputs in inputs/
