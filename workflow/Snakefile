@@ -37,11 +37,18 @@ chroms = pd.read_csv(f'{config["chromsizes"]}', sep='\t',
 chroms = list(filter(lambda x: x not in config.get('ignore_chroms', []), chroms))
 
 ### Input cool files
-samples_df = pd.read_csv(config['samples'], sep='\t', header=0).set_index("sample", drop=False)
-coollinks_dict = dict(samples_df['file'])
+from urllib.parse import urlparse
+def will_download(link):
+    parsed_path = urlparse(link)
+    return False if parsed_path.scheme=='' else True
+
+samples_df = pd.read_csv(config['samples'], sep='\t', header=0)
+samples_df.loc[:, 'will_download'] = samples_df.file.apply(will_download)
+samples_df.loc[:, 'local_path'] = samples_df.apply(lambda x: f"{coolers_folder}/{x['sample']}.mcool" if x.will_download else x['file'], axis=1)
+samples_df = samples_df.set_index("sample")
 samples = list(samples_df.index)
-coolfiles = [f"{coolers_folder}/{sample}.mcool" for sample in samples]
-coolfiles_dict = dict(zip(samples, coolfiles))
+coollinks_dict = dict(samples_df.query('will_download')['file']) # dict with cools to be downloaded
+coolfiles_dict = dict(samples_df['local_path'])
 
 ### Input bed files
 def get_files(folder, extension):
@@ -49,9 +56,13 @@ def get_files(folder, extension):
     return files
 bedfiles_local = get_files(beds_folder, 'bed')
 
-bedfiles_df = pd.read_csv(config['annotations'], sep='\t', header=0)
-bedlinks_dict = {f"{row.bedname}.bed":row.file for i, row in bedfiles_df.iterrows()}
-bedfiles_additional = list(bedlinks_dict.keys())
+additional_bed_df = pd.read_csv(config['annotations'], sep='\t', header=0)
+additional_bed_df.loc[:, 'will_download'] = additional_bed_df.file.apply(will_download)
+additional_bed_df.loc[:, 'local_path'] = additional_bed_df.apply(lambda x:
+        f"{x.bedname}.bed" if x.will_download else x.file, axis=1)
+additional_bed_df = additional_bed_df.set_index("local_path")
+bedlinks_dict = dict(additional_bed_df.query('will_download')['file']) # dict with beds to be downloaded
+bedfiles_additional = list(additional_bed_df.index)
 bedfiles = list(set(bedfiles_local + bedfiles_additional)) # Retain only unique filenames
 # bedpe_pileups_mindist, bedpe_pileups_maxdist = config['bedpe_pileups_distance_limits']
 
@@ -639,33 +650,31 @@ def download_file(file, local_filename):
     import requests
     import tqdm
     import re
-    print('downloading:', file, 'as ', local_filename)
+
     with requests.get(file, stream=True) as r:
-        extension = '.gz' if re.findall("filename=(.+)", r.headers['content-disposition'])[0].endswith('.gz') else ''
+        ext_gz = '.gz' if re.findall("filename=(.+)", r.headers['content-disposition'])[0].endswith('.gz') else ''
         r.raise_for_status()
-        with open(local_filename+extension,'wb') as f:
+        print('downloading:', file, 'as ', local_filename+ext_gz)
+        with open(local_filename+ext_gz,'wb') as f:
             for chunk in tqdm.tqdm(r.iter_content(chunk_size=8192)):
                 f.write(chunk)
-    return local_filename+extension
+    return local_filename+ext_gz
 
 def get_file(file, output):
-    from urllib.parse import urlparse
-    parsed_path = urlparse(file)
+    """
+    If input is URL, it download via python's requests. Uncompress if needed.
+    """
     if file==output:
         exit()
-    if parsed_path.scheme == "":
-        if file.endswith('.gz'):
-            shell(f"cp {file} {output}.gz; gzip -d {output}.gz")
-        else:
-            shell(f"cp {file} {output}")
-    elif parsed_path.scheme == "http" or parsed_path.scheme == "https":
-        print(output)
-        downloaded_file = download_file(file, output)
-        if downloaded_file.endswith('.gz'):
-            shell(f"gzip -d {output}.gz")
+
+    from urllib.parse import urlparse
+    parsed_path = urlparse(file)
+    if parsed_path.scheme == "http" or parsed_path.scheme == "https":
+        output_file = download_file(file, output)
     else:
         raise Exception(f"Unable to download from: {file}\nScheme {parsed_url.scheme} is not supported")
-
+    if output_file.endswith('.gz'):
+        shell(f"gzip -d {output_file}")
 
 rule get_cool_data:
     output:
