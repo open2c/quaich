@@ -17,6 +17,7 @@ localrules:
 
 
 ###### Read config parameters #######
+
 project_folder = config.get("project_folder", "results")
 inputs_folder = config.get("inputs_folder", "inputs")
 coolers_folder = config.get("coolers_folder", path.join(inputs_folder, "coolers"))
@@ -77,6 +78,7 @@ samples_df.loc[:, "local_path"] = samples_df.apply(
     axis=1,
 )
 samples_df = samples_df.set_index("sample")
+
 samples = list(samples_df.index)
 coollinks_dict = dict(
     samples_df.query("will_download")["file"]
@@ -111,7 +113,6 @@ ignore_resolutions_more_than = config["ignore_resolutions_more_than"]
 resolutions = config["resolutions"]  ##### Assume same resolutions in all coolers
 minresolution = min(resolutions)
 resolutions = list(filter(lambda x: x <= ignore_resolutions_more_than, resolutions))
-
 
 if config["eigenvector"]["do"]:
     eigenvector_resolution_limits = config["eigenvector"]["resolution_limits"]
@@ -184,6 +185,12 @@ if config["insulation"]["do"]:
         for win in config["insulation"]["resolutions"][resolution]:
             insul_res_win.append(f"{resolution}_{win}")
 
+if config["call_TADs"]["do"]:
+    tad_res_win = []
+    for resolution in config["call_TADs"]["resolutions"]:
+        for win in config["call_TADs"]["resolutions"][resolution]:
+            tad_res_win.append(f"{resolution}_{win}")
+
 # chroms = cooler.Cooler(f'{coolers_folder}/{coolfiles[0]}::resolutions/{resolutions[0]}').chroms()[:]
 
 # bedpe_mindists = [int(bedpe_pileups_mindist*2**i) for i in np.arange(0, np.log2(bedpe_pileups_maxdist/bedpe_pileups_mindist))]
@@ -213,20 +220,20 @@ diff_boundaries_pileups = (
 
 tads = (
     expand(
-        f"{tad_folder}/TADs_{{sampleTADs}}_{{insul_res_win}}.bed",
+        f"{tad_folder}/TADs_{{sampleTADs}}_{{tad_res_win}}.bed",
         sampleTADs=config["call_TADs"]["samples"],
-        insul_res_win=insul_res_win,
+        tad_res_win=tad_res_win,
     )
     if config["call_TADs"]["do"]
     else []
 )
 tads_pileups = (
     expand(
-        f"{pileups_folder}/{tad_folder_name}/{{sample}}-{{resolution}}_over_TADs_{{sampleTADs}}_{{insul_res_win}}.bed_{{norm}}_local_rescaled.np.txt",
+        f"{pileups_folder}/{tad_folder_name}/{{sample}}-{{resolution}}_over_TADs_{{sampleTADs}}_{{tad_res_win}}.bed_{{norm}}_local_rescaled.np.txt",
         sample=samples,
         resolution=pileup_resolutions,
         sampleTADs=config["call_TADs"]["samples"],
-        insul_res_win=insul_res_win,
+        tad_res_win=tad_res_win,
         norm=["expected", f"{shifts}-shifts"],
     )
     if config["call_TADs"]["do"] and config["pileups"]["do"]
@@ -642,8 +649,9 @@ rule call_loops_chromosight:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
     shell:
-        f"chromosight detect --pattern loops --no-plotting -t {{threads}} {{input.cooler}}::resolutions/{{wildcards.resolution}} {loop_folder}/loops_{{wildcards.sample}}_{{wildcards.resolution}} &&"
-        f"tail -n +2 {loop_folder}/loops_{{wildcards.sample}}_{{wildcards.resolution}}/loops_out.txt | cut -f1-6 > {{output}}"
+        f"chromosight detect --pattern loops --no-plotting -t {{threads}} {{input.cooler}}::resolutions/{{wildcards.resolution}} {loop_folder}/loops_chromosight_{{wildcards.sample}}_{{wildcards.resolution}} &&"
+        f"tail -n +2 {loop_folder}/loops_chromosight_{{wildcards.sample}}_{{wildcards.resolution}}.tsv | cut -f1-6 > {{output}}"
+
 
 
 rule call_loops_mustache_chrom:

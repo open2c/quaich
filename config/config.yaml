@@ -145,6 +145,13 @@ compare_boundaries:
 
 call_TADs: # By just combining strong boundaries
     do: True
+    resolutions:
+        10000: # Which window sizes to use for which resolution
+            - 50000
+            - 100000
+            - 200000
+            - 500000
+            - 1000000
     max_tad_length: 1500000
     samples:
         - test
