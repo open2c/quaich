@@ -5,191 +5,308 @@ import cooler
 import numpy as np
 import pandas as pd
 
-localrules: all, make_differential_insulation, make_tads, call_loops_mustache, download_data
 
-genome = config['genome']
+localrules:
+    all,
+    make_differential_insulation,
+    make_tads,
+    call_loops_mustache,
+    download_data,
 
-chroms = pd.read_csv(f'{config["chromsizes"]}', sep='\t',
-                         names=['chrom', 'start', 'end'])['chrom'].values
-chroms = list(filter(lambda x: x not in config['ignore_chroms'], chroms))
 
-project_folder = config.get('project_folder', 'results')
-inputs_folder = config.get('inputs_folder', 'inputs')
-coolers_folder = config.get('coolers_folder', path.join(inputs_folder, 'coolers'))
-beds_folder = path.normpath(config.get('beds_folder', path.join(inputs_folder, 'beds')))
+genome = config["genome"]
+
+chroms = pd.read_csv(
+    f'{config["chromsizes"]}', sep="\t", names=["chrom", "start", "end"]
+)["chrom"].values
+chroms = list(filter(lambda x: x not in config["ignore_chroms"], chroms))
+
+project_folder = config.get("project_folder", "results")
+inputs_folder = config.get("inputs_folder", "inputs")
+coolers_folder = config.get("coolers_folder", path.join(inputs_folder, "coolers"))
+beds_folder = path.normpath(config.get("beds_folder", path.join(inputs_folder, "beds")))
 beds_folder_name = path.basename(beds_folder)
-expected_folder = path.normpath(config.get('expected_folder', path.join(project_folder, 'expected')))
-pileups_folder = path.normpath(config.get('pileups_folder', path.join(project_folder, 'pileups')))
-eigenvectors_folder = path.normpath(config.get('eigenvectors_folder', path.join(project_folder, 'eigenvectors')))
-saddles_folder = path.normpath(config.get('saddles_folder', path.join(project_folder, 'saddles')))
-insulation_folder = path.normpath(config.get('insulation_folder', path.join(project_folder, 'insulation')))
-tad_folder = path.normpath(config.get('tad_folder', path.join(project_folder, 'tads')))
+expected_folder = path.normpath(
+    config.get("expected_folder", path.join(project_folder, "expected"))
+)
+pileups_folder = path.normpath(
+    config.get("pileups_folder", path.join(project_folder, "pileups"))
+)
+eigenvectors_folder = path.normpath(
+    config.get("eigenvectors_folder", path.join(project_folder, "eigenvectors"))
+)
+saddles_folder = path.normpath(
+    config.get("saddles_folder", path.join(project_folder, "saddles"))
+)
+insulation_folder = path.normpath(
+    config.get("insulation_folder", path.join(project_folder, "insulation"))
+)
+tad_folder = path.normpath(config.get("tad_folder", path.join(project_folder, "tads")))
 tad_folder_name = path.basename(tad_folder)
-loop_folder = path.normpath(config.get('loop_folder', path.join(project_folder, 'loops')))
+loop_folder = path.normpath(
+    config.get("loop_folder", path.join(project_folder, "loops"))
+)
 loop_folder_name = path.basename(loop_folder)
-boundary_folder = path.normpath(config.get('boundary_folder', path.join(project_folder, 'boundaries')))
+boundary_folder = path.normpath(
+    config.get("boundary_folder", path.join(project_folder, "boundaries"))
+)
 boundary_folder_name = path.basename(boundary_folder)
-outfolders = {tad_folder_name:tad_folder,
-              loop_folder_name:loop_folder,
-              boundary_folder_name:boundary_folder,
-              beds_folder_name:beds_folder}
+outfolders = {
+    tad_folder_name: tad_folder,
+    loop_folder_name: loop_folder,
+    boundary_folder_name: boundary_folder,
+    beds_folder_name: beds_folder,
+}
 
-samples_df = pd.read_csv(config['samples'], sep='\t', header=0).set_index("sample", drop=False)
-if 'url' in samples_df.columns:
-    if not np.all((~samples_df[['location', 'url']].isna()).sum(axis=1)==1):
+samples_df = pd.read_csv(config["samples"], sep="\t", header=0).set_index(
+    "sample", drop=False
+)
+if "url" in samples_df.columns:
+    if not np.all((~samples_df[["location", "url"]].isna()).sum(axis=1) == 1):
         raise ValueError("Please specify either URL or location of multicooler files.")
-    urldict = dict(samples_df[~samples_df['url'].isnull()]['url'])
-    remote_cool_file_dict = {sample:f'{coolers_folder}/{sample}.mcool' for sample in urldict.keys()}
-    coolfiles_dict = dict(samples_df[~samples_df['location'].isnull()]['location'])
+    urldict = dict(samples_df[~samples_df["url"].isnull()]["url"])
+    remote_cool_file_dict = {
+        sample: f"{coolers_folder}/{sample}.mcool" for sample in urldict.keys()
+    }
+    coolfiles_dict = dict(samples_df[~samples_df["location"].isnull()]["location"])
     coolfiles_dict.update(remote_cool_file_dict)
 else:
-    coolfiles_dict = dict(samples_df['location'])
+    coolfiles_dict = dict(samples_df["location"])
 samples = list(samples_df.index)
 coolfiles = [coolfiles_dict[sample] for sample in samples]
 
-ignore_resolutions_more_than = config['ignore_resolutions_more_than']
+ignore_resolutions_more_than = config["ignore_resolutions_more_than"]
 
 # bedpe_pileups_mindist, bedpe_pileups_maxdist = config['bedpe_pileups_distance_limits']
 
 
 def get_files(folder, extension):
-    files = list(map(path.basename, glob(f'{folder}/*{extension}')))
+    files = list(map(path.basename, glob(f"{folder}/*{extension}")))
     return files
+
+
 #
 #
-bedfiles = get_files(beds_folder, 'bed')
+bedfiles = get_files(beds_folder, "bed")
 ##### Assume same resolutions in all coolers
-resolutions = config['resolutions']
+resolutions = config["resolutions"]
 minresolution = min(resolutions)
-resolutions = list(filter(lambda x: x<=ignore_resolutions_more_than, resolutions))
+resolutions = list(filter(lambda x: x <= ignore_resolutions_more_than, resolutions))
 
-if config['eigenvector']['do']:
-    eigenvector_resolution_limits = config['eigenvector']['resolution_limits']
-    eigenvector_resolutions = list(filter(lambda x: eigenvector_resolution_limits[0]<=x<=eigenvector_resolution_limits[1],
-                                          resolutions))
+if config["eigenvector"]["do"]:
+    eigenvector_resolution_limits = config["eigenvector"]["resolution_limits"]
+    eigenvector_resolutions = list(
+        filter(
+            lambda x: eigenvector_resolution_limits[0]
+            <= x
+            <= eigenvector_resolution_limits[1],
+            resolutions,
+        )
+    )
 
-if config['saddle']['do']:
-    saddle_mindist, saddle_maxdist = config['saddle']['distance_limits']
-    saddle_mindists = [int(saddle_mindist*2**i) for i in np.arange(0, np.log2(saddle_maxdist/saddle_mindist))]
-    saddle_separations = [f'_dist_{mindist}-{mindist*2}' for mindist in saddle_mindists]
+if config["saddle"]["do"]:
+    saddle_mindist, saddle_maxdist = config["saddle"]["distance_limits"]
+    saddle_mindists = [
+        int(saddle_mindist * 2 ** i)
+        for i in np.arange(0, np.log2(saddle_maxdist / saddle_mindist))
+    ]
+    saddle_separations = [f"_dist_{mindist}-{mindist*2}" for mindist in saddle_mindists]
 
-if config['pileups']['do'] or config['pileups']['bed_pairs']['do']:
-    shifts = config['pileups']['shifts']
-    pileup_resolution_limits = config['pileups']['resolution_limits']
-    pileups_mindist, pileups_maxdist = config['pileups']['distance_limits']
-    pileup_resolutions = list(filter(lambda x: pileup_resolution_limits[0]<=x<=pileup_resolution_limits[1],
-                                     resolutions))
-    mindists = [int(pileups_mindist*2**i) for i in np.arange(0, np.log2(pileups_maxdist/pileups_mindist))]
-    separations = [f'_dist_{mindist}-{mindist*2}' for mindist in mindists]
+if config["pileups"]["do"] or config["pileups"]["bed_pairs"]["do"]:
+    shifts = config["pileups"]["shifts"]
+    pileup_resolution_limits = config["pileups"]["resolution_limits"]
+    pileups_mindist, pileups_maxdist = config["pileups"]["distance_limits"]
+    pileup_resolutions = list(
+        filter(
+            lambda x: pileup_resolution_limits[0] <= x <= pileup_resolution_limits[1],
+            resolutions,
+        )
+    )
+    mindists = [
+        int(pileups_mindist * 2 ** i)
+        for i in np.arange(0, np.log2(pileups_maxdist / pileups_mindist))
+    ]
+    separations = [f"_dist_{mindist}-{mindist*2}" for mindist in mindists]
 
-if config['pileups']['bed_pairs']['do']:
-    bedpairs_folder = path.normpath(config['pileups']['bed_pairs']['path'])
+if config["pileups"]["bed_pairs"]["do"]:
+    bedpairs_folder = path.normpath(config["pileups"]["bed_pairs"]["path"])
     bedpairs_folder_name = path.basename(bedpairs_folder)
 
     def get_pairs(bedpairs_input_dict):
-        return bedpairs_input_dict['files']
+        return bedpairs_input_dict["files"]
 
-    bedpairs = {name:config['pileups']['bed_pairs']['input'][name]['files'] for name in config['pileups']['bed_pairs']['input'].keys()}
-    bedpairs_args = {name:' '+config['pileups']['bed_pairs']['input'][name]['arguments'] for name in config['pileups']['bed_pairs']['input'].keys()}
+    bedpairs = {
+        name: config["pileups"]["bed_pairs"]["input"][name]["files"]
+        for name in config["pileups"]["bed_pairs"]["input"].keys()
+    }
+    bedpairs_args = {
+        name: " " + config["pileups"]["bed_pairs"]["input"][name]["arguments"]
+        for name in config["pileups"]["bed_pairs"]["input"].keys()
+    }
 
-if config['loopability']['do']:
-    loopability_folder = path.normpath(config['loopability']['path'])
+if config["loopability"]["do"]:
+    loopability_folder = path.normpath(config["loopability"]["path"])
     loopability_folder_name = path.basename(loopability_folder)
 
-    loopability = {name:config['loopability']['input'][name]['file'] for name in config['loopability']['input'].keys()}
-    loopability_args = {name:' '+config['loopability']['input'][name]['arguments'] for name in config['loopability']['input'].keys()}
-    loopability_shifts = config['loopability']['shifts']
+    loopability = {
+        name: config["loopability"]["input"][name]["file"]
+        for name in config["loopability"]["input"].keys()
+    }
+    loopability_args = {
+        name: " " + config["loopability"]["input"][name]["arguments"]
+        for name in config["loopability"]["input"].keys()
+    }
+    loopability_shifts = config["loopability"]["shifts"]
 
-if config['insulation']['do']:
+if config["insulation"]["do"]:
     insul_res_win = []
-    for resolution in config['insulation']['resolutions']:
-        for win in config['insulation']['resolutions'][resolution]:
-            insul_res_win.append(f'{resolution}_{win}')
+    for resolution in config["insulation"]["resolutions"]:
+        for win in config["insulation"]["resolutions"][resolution]:
+            insul_res_win.append(f"{resolution}_{win}")
 
-if config['call_TADs']['do']:
+if config["call_TADs"]["do"]:
     tad_res_win = []
-    for resolution in config['call_TADs']['resolutions']:
-        for win in config['call_TADs']['resolutions'][resolution]:
-            tad_res_win.append(f'{resolution}_{win}')
+    for resolution in config["call_TADs"]["resolutions"]:
+        for win in config["call_TADs"]["resolutions"][resolution]:
+            tad_res_win.append(f"{resolution}_{win}")
 
 # chroms = cooler.Cooler(f'{coolers_folder}/{coolfiles[0]}::resolutions/{resolutions[0]}').chroms()[:]
 
 # bedpe_mindists = [int(bedpe_pileups_mindist*2**i) for i in np.arange(0, np.log2(bedpe_pileups_maxdist/bedpe_pileups_mindist))]
 # bedpe_separations = [f'{mindist}-{mindist*2}' for mindist in bedpe_mindists]
 
-diff_boundaries = expand(f"{boundary_folder}/Insulation_{config['compare_boundaries']['samples'][0]}_not_"
-                         f"{config['compare_boundaries']['samples'][1]}_{{insul_res_win}}.bed",
-                         insul_res_win=insul_res_win) if config['compare_boundaries']['do'] else []
-diff_boundaries_pileups = expand(f"{pileups_folder}/{boundary_folder_name}/{{sample}}-{{resolution}}_over_Insulation_{config['compare_boundaries']['samples'][0]}_not_"
-                                 f"{config['compare_boundaries']['samples'][1]}_{{insul_res_win}}.bed_{{norm}}_local.np.txt",
-                                 sample = samples,
-                                 resolution = pileup_resolutions,
-                                 insul_res_win=insul_res_win,
-                                 norm=['expected', f'{shifts}-shifts']) if config['compare_boundaries']['do'] and config['pileups']['do'] else []
+diff_boundaries = (
+    expand(
+        f"{boundary_folder}/Insulation_{config['compare_boundaries']['samples'][0]}_not_"
+        f"{config['compare_boundaries']['samples'][1]}_{{insul_res_win}}.bed",
+        insul_res_win=insul_res_win,
+    )
+    if config["compare_boundaries"]["do"]
+    else []
+)
+diff_boundaries_pileups = (
+    expand(
+        f"{pileups_folder}/{boundary_folder_name}/{{sample}}-{{resolution}}_over_Insulation_{config['compare_boundaries']['samples'][0]}_not_"
+        f"{config['compare_boundaries']['samples'][1]}_{{insul_res_win}}.bed_{{norm}}_local.np.txt",
+        sample=samples,
+        resolution=pileup_resolutions,
+        insul_res_win=insul_res_win,
+        norm=["expected", f"{shifts}-shifts"],
+    )
+    if config["compare_boundaries"]["do"] and config["pileups"]["do"]
+    else []
+)
 
-tads = expand(f"{tad_folder}/TADs_{{sampleTADs}}_{{tad_res_win}}.bed",
-sampleTADs=config['call_TADs']['samples'],
-tad_res_win=tad_res_win) if config['call_TADs']['do'] else []
-tads_pileups = expand(f"{pileups_folder}/{tad_folder_name}/{{sample}}-{{resolution}}_over_TADs_{{sampleTADs}}_{{tad_res_win}}.bed_{{norm}}_local_rescaled.np.txt",
-                      sample = samples,
-                      resolution = pileup_resolutions,
-                      sampleTADs=config['call_TADs']['samples'],
-                      tad_res_win=tad_res_win,
-                      norm=['expected', f'{shifts}-shifts']) if config['call_TADs']['do'] and config['pileups']['do'] else []
-dot_methods = [m for m in config['call_dots']['methods'] if config['call_dots']['methods'][m]['do']]
+tads = (
+    expand(
+        f"{tad_folder}/TADs_{{sampleTADs}}_{{tad_res_win}}.bed",
+        sampleTADs=config["call_TADs"]["samples"],
+        tad_res_win=tad_res_win,
+    )
+    if config["call_TADs"]["do"]
+    else []
+)
+tads_pileups = (
+    expand(
+        f"{pileups_folder}/{tad_folder_name}/{{sample}}-{{resolution}}_over_TADs_{{sampleTADs}}_{{tad_res_win}}.bed_{{norm}}_local_rescaled.np.txt",
+        sample=samples,
+        resolution=pileup_resolutions,
+        sampleTADs=config["call_TADs"]["samples"],
+        tad_res_win=tad_res_win,
+        norm=["expected", f"{shifts}-shifts"],
+    )
+    if config["call_TADs"]["do"] and config["pileups"]["do"]
+    else []
+)
+dot_methods = [
+    m for m in config["call_dots"]["methods"] if config["call_dots"]["methods"][m]["do"]
+]
 if dot_methods:
-    loops = expand(f"{loop_folder}/Loops_{{method}}_{{sampleLoops}}_{{resolutionLoops}}.bedpe",
-method = dot_methods,
-sampleLoops=config['call_dots']['samples'],
-resolutionLoops=config['call_dots']['resolution'])
+    loops = expand(
+        f"{loop_folder}/Loops_{{method}}_{{sampleLoops}}_{{resolutionLoops}}.bedpe",
+        method=dot_methods,
+        sampleLoops=config["call_dots"]["samples"],
+        resolutionLoops=config["call_dots"]["resolution"],
+    )
 
-    loops_pileups = expand(f"{pileups_folder}/{loop_folder_name}/{{sample}}-{{resolution}}_over_Loops_{{method}}_{{sampleLoops}}_{{resolutionLoops}}.bedpe_{{norm}}{{mode}}.np.txt",
-                           sample = samples,
-                           resolution = pileup_resolutions,
-                           method = dot_methods,
-                           sampleLoops=config['call_dots']['samples'],
-                           resolutionLoops=config['call_dots']['resolution'],
-                           norm=['expected', f'{shifts}-shifts'],
-                           mode=['']+separations) if config['pileups']['do'] else []
+    loops_pileups = (
+        expand(
+            f"{pileups_folder}/{loop_folder_name}/{{sample}}-{{resolution}}_over_Loops_{{method}}_{{sampleLoops}}_{{resolutionLoops}}.bedpe_{{norm}}{{mode}}.np.txt",
+            sample=samples,
+            resolution=pileup_resolutions,
+            method=dot_methods,
+            sampleLoops=config["call_dots"]["samples"],
+            resolutionLoops=config["call_dots"]["resolution"],
+            norm=["expected", f"{shifts}-shifts"],
+            mode=[""] + separations,
+        )
+        if config["pileups"]["do"]
+        else []
+    )
 else:
     loops = []
     loops_pileups = []
 
-beds_pileups = expand(f"{pileups_folder}/{beds_folder_name}/{{sample}}-{{resolution}}_over_{{bedfile}}_{{norm}}{{mode}}.np.txt",
-sample = samples,
-resolution = pileup_resolutions,
-bedfile=bedfiles,
-norm=['expected', f'{shifts}-shifts'],
-mode=['', '_local']+separations) if config['pileups']['do'] else []
-paired_beds_pileups = expand(f'{pileups_folder}/{bedpairs_folder_name}/{{sample}}-{{resolution}}_over-paired_{{pairname}}_{{norm}}{{mode}}.np.txt',
-                             sample = samples,
-                             resolution = pileup_resolutions,
-                             pairname = bedpairs.keys(),
-                             separation = separations,
-                             norm=['expected', f'{shifts}-shifts'],
-                             mode=['']+separations) if config['pileups']['do'] and config['pileups']['bed_pairs']['do'] else []
-loopability_tables = expand(f'{pileups_folder}/{loopability_folder_name}/loopability/{{sample}}-{{resolution}}_over_{{bedname}}_{{norm}}_loopability_seed{{seed}}.tsv',
-                            sample = config['loopability']['samples'],
-                            resolution = config['loopability']['resolutions'],
-                            bedname = loopability.keys(),
-                            norm=['expected', f'{loopability_shifts}-shifts'],
-                            seed = np.arange(config['loopability']['n_random_samples'])) if config['loopability']['do'] else []
-saddles = expand(f'{saddles_folder}/{{sample}}_{{resolution}}_{{bins}}{{dist}}.{{ending}}',
-                 sample = samples,
-                 resolution = eigenvector_resolutions,
-                 bins = config['saddle']['bins'],
-                 dist = saddle_separations+[""],
-                 ending = ['saddledump.npz', 'digitized.tsv']) if config['saddle']['do'] else []
+beds_pileups = (
+    expand(
+        f"{pileups_folder}/{beds_folder_name}/{{sample}}-{{resolution}}_over_{{bedfile}}_{{norm}}{{mode}}.np.txt",
+        sample=samples,
+        resolution=pileup_resolutions,
+        bedfile=bedfiles,
+        norm=["expected", f"{shifts}-shifts"],
+        mode=["", "_local"] + separations,
+    )
+    if config["pileups"]["do"]
+    else []
+)
+paired_beds_pileups = (
+    expand(
+        f"{pileups_folder}/{bedpairs_folder_name}/{{sample}}-{{resolution}}_over-paired_{{pairname}}_{{norm}}{{mode}}.np.txt",
+        sample=samples,
+        resolution=pileup_resolutions,
+        pairname=bedpairs.keys(),
+        separation=separations,
+        norm=["expected", f"{shifts}-shifts"],
+        mode=[""] + separations,
+    )
+    if config["pileups"]["do"] and config["pileups"]["bed_pairs"]["do"]
+    else []
+)
+loopability_tables = (
+    expand(
+        f"{pileups_folder}/{loopability_folder_name}/loopability/{{sample}}-{{resolution}}_over_{{bedname}}_{{norm}}_loopability_seed{{seed}}.tsv",
+        sample=config["loopability"]["samples"],
+        resolution=config["loopability"]["resolutions"],
+        bedname=loopability.keys(),
+        norm=["expected", f"{loopability_shifts}-shifts"],
+        seed=np.arange(config["loopability"]["n_random_samples"]),
+    )
+    if config["loopability"]["do"]
+    else []
+)
+saddles = (
+    expand(
+        f"{saddles_folder}/{{sample}}_{{resolution}}_{{bins}}{{dist}}.{{ending}}",
+        sample=samples,
+        resolution=eigenvector_resolutions,
+        bins=config["saddle"]["bins"],
+        dist=saddle_separations + [""],
+        ending=["saddledump.npz", "digitized.tsv"],
+    )
+    if config["saddle"]["do"]
+    else []
+)
 
 
-def split_dist(dist_wildcard, mindist_arg='--mindist', maxdist_arg='--maxdist'):
-    if dist_wildcard=="":
+def split_dist(dist_wildcard, mindist_arg="--mindist", maxdist_arg="--maxdist"):
+    if dist_wildcard == "":
         return ""
     else:
-        assert dist_wildcard.startswith('_dist_')
-        dists = dist_wildcard.split('_')[-1]
-        mindist, maxdist = dists.split('-')
-        return f'{mindist_arg} {mindist} {maxdist_arg} {maxdist}'
+        assert dist_wildcard.startswith("_dist_")
+        dists = dist_wildcard.split("_")[-1]
+        mindist, maxdist = dists.split("-")
+        return f"{mindist_arg} {mindist} {maxdist_arg} {maxdist}"
+
 
 rule all:
     input:
@@ -204,460 +321,588 @@ rule all:
         lambda wildcards: loopability_tables,
         lambda wildcards: saddles,
 
+
 rule make_pileups:
     input:
-        cooler = lambda wildcards: f'{coolfiles_dict[wildcards.sample]}',
-        expected = f'{expected_folder}/{{sample}}_{{resolution}}.expected.tsv',
-        bedfile = lambda wildcards: f'{outfolders[wildcards.folder]}/{wildcards.bedfile}'
+        cooler=lambda wildcards: f"{coolfiles_dict[wildcards.sample]}",
+        expected=f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
+        bedfile=(
+            lambda wildcards: f"{outfolders[wildcards.folder]}/{wildcards.bedfile}"
+        ),
     output:
-        f'{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_expected.np.txt'
+        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_expected.np.txt",
     params:
-        outname = lambda wildcards, output: output[0].split('/')[-1],
-        outdir = lambda wildcards, output: f'{pileups_folder}/{wildcards.folder}',
+        outname=lambda wildcards, output: output[0].split("/")[-1],
+        outdir=lambda wildcards, output: f"{pileups_folder}/{wildcards.folder}",
     threads: 8
     resources:
-        mem_mb = lambda wildcards, threads: threads*16*1024,
-        runtime = 24*60
+        mem_mb=lambda wildcards, threads: threads * 16 * 1024,
+        runtime=24 * 60,
     shell:
         f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --n_proc {{threads}} --expected {{input.expected}} --outdir {{params.outdir}} --outname {{params.outname}}"
 
+
 rule make_pileups_local:
     input:
-        cooler = lambda wildcards: f'{coolfiles_dict[wildcards.sample]}',
-        expected = f'{expected_folder}/{{sample}}_{{resolution}}.expected.tsv',
-        bedfile = lambda wildcards: f'{outfolders[wildcards.folder]}/{wildcards.bedfile}'
+        cooler=lambda wildcards: f"{coolfiles_dict[wildcards.sample]}",
+        expected=f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
+        bedfile=(
+            lambda wildcards: f"{outfolders[wildcards.folder]}/{wildcards.bedfile}"
+        ),
     output:
-        f'{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_expected_local.np.txt'
+        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_expected_local.np.txt",
     params:
-        outname = lambda wildcards, output: output[0].split('/')[-1],
-        outdir = lambda wildcards, output: f'{pileups_folder}/{wildcards.folder}',
+        outname=lambda wildcards, output: output[0].split("/")[-1],
+        outdir=lambda wildcards, output: f"{pileups_folder}/{wildcards.folder}",
     threads: 4
     resources:
-        mem_mb = lambda wildcards, threads: threads*16*1024,
-        runtime = 24*60
+        mem_mb=lambda wildcards, threads: threads * 16 * 1024,
+        runtime=24 * 60,
     shell:
         f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --local --n_proc {{threads}} --expected {{input.expected}} --outdir {{params.outdir}} --outname {{params.outname}}"
 
+
 rule make_pileups_local_rescaled:
     input:
-        cooler = lambda wildcards: f'{coolfiles_dict[wildcards.sample]}',
-        expected = f'{expected_folder}/{{sample}}_{{resolution}}.expected.tsv',
-        bedfile = lambda wildcards: f'{outfolders[wildcards.folder]}/{wildcards.bedfile}'
+        cooler=lambda wildcards: f"{coolfiles_dict[wildcards.sample]}",
+        expected=f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
+        bedfile=(
+            lambda wildcards: f"{outfolders[wildcards.folder]}/{wildcards.bedfile}"
+        ),
     output:
-        f'{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_expected_local_rescaled.np.txt'
+        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_expected_local_rescaled.np.txt",
     params:
-        outname = lambda wildcards, output: output[0].split('/')[-1],
-        outdir = lambda wildcards, output: f'{pileups_folder}/{wildcards.folder}',
+        outname=lambda wildcards, output: output[0].split("/")[-1],
+        outdir=lambda wildcards, output: f"{pileups_folder}/{wildcards.folder}",
     threads: 4
     resources:
-        mem_mb = lambda wildcards, threads: threads*16*1024,
-        runtime = 24*60
+        mem_mb=lambda wildcards, threads: threads * 16 * 1024,
+        runtime=24 * 60,
     shell:
         f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --local --rescale --rescale_pad {config['pileups']['rescale_pad']} --n_proc {{threads}} --expected {{input.expected}} --outdir {{params.outdir}} --outname {{params.outname}}"
 
+
 rule make_pileups_distance:
     input:
-        cooler = lambda wildcards: f'{coolfiles_dict[wildcards.sample]}',
-        expected = f'{expected_folder}/{{sample}}_{{resolution}}.expected.tsv',
-        bedfile = lambda wildcards: f'{outfolders[wildcards.folder]}/{wildcards.bedfile}'
+        cooler=lambda wildcards: f"{coolfiles_dict[wildcards.sample]}",
+        expected=f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
+        bedfile=(
+            lambda wildcards: f"{outfolders[wildcards.folder]}/{wildcards.bedfile}"
+        ),
     output:
-        f'{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_expected_dist_{{mindist,[0-9]+}}-{{maxdist,[0-9]+}}.np.txt'
+        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_expected_dist_{{mindist,[0-9]+}}-{{maxdist,[0-9]+}}.np.txt",
     params:
-        outname = lambda wildcards, output: output[0].split('/')[-1],
-        outdir = lambda wildcards, output: f'{pileups_folder}/{wildcards.folder}',
+        outname=lambda wildcards, output: output[0].split("/")[-1],
+        outdir=lambda wildcards, output: f"{pileups_folder}/{wildcards.folder}",
     threads: 4
     resources:
-        mem_mb = lambda wildcards, threads: threads*16*1024,
-        runtime = 24*60
+        mem_mb=lambda wildcards, threads: threads * 16 * 1024,
+        runtime=24 * 60,
     shell:
         f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --n_proc {{threads}} --expected {{input.expected}} --mindist {{wildcards.mindist}} --maxdist {{wildcards.maxdist}} --outdir {{params.outdir}} --outname {{params.outname}}"
 
+
 rule loopability:
     input:
-        cooler = lambda wildcards: f'{coolfiles_dict[wildcards.sample]}',
-        expected = f'{expected_folder}/{{sample}}_{{resolution}}.expected.tsv',
-        bedfile = lambda wildcards: path.join(loopability_folder, loopability[wildcards.bedname])
+        cooler=lambda wildcards: f"{coolfiles_dict[wildcards.sample]}",
+        expected=f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
+        bedfile=lambda wildcards: path.join(
+            loopability_folder, loopability[wildcards.bedname]
+        ),
     output:
-        f'{pileups_folder}/{{folder}}/loopability/{{sample}}-{{resolution,[0-9]+}}_over_{{bedname}}_expected_loopability_seed{{seed}}.tsv'
+        f"{pileups_folder}/{{folder}}/loopability/{{sample}}-{{resolution,[0-9]+}}_over_{{bedname}}_expected_loopability_seed{{seed}}.tsv",
     params:
-        outname = lambda wildcards, output: output[0].split('/')[-1],
-        outdir = lambda wildcards, output: f'{pileups_folder}/{wildcards.folder}/loopability',
-        args = lambda wildcards: loopability_args[wildcards.bedname]
+        outname=lambda wildcards, output: output[0].split("/")[-1],
+        outdir=(
+            lambda wildcards, output: f"{pileups_folder}/{wildcards.folder}/loopability"
+        ),
+        args=lambda wildcards: loopability_args[wildcards.bedname],
     threads: 8
     resources:
-        mem_mb = lambda wildcards, threads: threads*16*1024,
-        runtime = 24*60
+        mem_mb=lambda wildcards, threads: threads * 16 * 1024,
+        runtime=24 * 60,
     shell:
         f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --by_window --seed {{wildcards.seed}} --n_proc {{threads}} --expected {{input.expected}} --outdir {{params.outdir}} --outname {{params.outname}} {{params.args}}"
 
+
 rule loopability_shifts:
     input:
-        cooler = lambda wildcards: f'{coolfiles_dict[wildcards.sample]}',
-        bedfile = lambda wildcards: path.join(loopability_folder, loopability[wildcards.bedname])
+        cooler=lambda wildcards: f"{coolfiles_dict[wildcards.sample]}",
+        bedfile=lambda wildcards: path.join(
+            loopability_folder, loopability[wildcards.bedname]
+        ),
     output:
-        f'{pileups_folder}/{{folder}}/loopability/{{sample}}-{{resolution,[0-9]+}}_over_{{bedname}}_{{loopability_shifts}}-shifts_loopability_seed{{seed}}.tsv'
+        f"{pileups_folder}/{{folder}}/loopability/{{sample}}-{{resolution,[0-9]+}}_over_{{bedname}}_{{loopability_shifts}}-shifts_loopability_seed{{seed}}.tsv",
     params:
-        outname = lambda wildcards, output: output[0].split('/')[-1],
-        outdir = lambda wildcards, output: f'{pileups_folder}/{wildcards.folder}/loopability',
-        args = lambda wildcards: loopability_args[wildcards.bedname]
+        outname=lambda wildcards, output: output[0].split("/")[-1],
+        outdir=(
+            lambda wildcards, output: f"{pileups_folder}/{wildcards.folder}/loopability"
+        ),
+        args=lambda wildcards: loopability_args[wildcards.bedname],
     threads: 8
     resources:
-        mem_mb = lambda wildcards, threads: threads*16*1024,
-        runtime = 24*60
+        mem_mb=lambda wildcards, threads: threads * 16 * 1024,
+        runtime=24 * 60,
     shell:
         f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --by_window --seed {{wildcards.seed}} --n_proc {{threads}} --nshifts {{wildcards.loopability_shifts}} --outdir {{params.outdir}} --outname {{params.outname}} {{params.args}}"
 
 
 rule make_pileups_shifts:
     input:
-        cooler = lambda wildcards: f'{coolfiles_dict[wildcards.sample]}',
-        bedfile = lambda wildcards: f'{outfolders[wildcards.folder]}/{wildcards.bedfile}'
+        cooler=lambda wildcards: f"{coolfiles_dict[wildcards.sample]}",
+        bedfile=(
+            lambda wildcards: f"{outfolders[wildcards.folder]}/{wildcards.bedfile}"
+        ),
     output:
-        f'{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_{shifts}-shifts.np.txt'
+        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_{shifts}-shifts.np.txt",
     params:
-        outname = lambda wildcards, output: output[0].split('/')[-1],
-        outdir = lambda wildcards, output: f'{pileups_folder}/{wildcards.folder}',
+        outname=lambda wildcards, output: output[0].split("/")[-1],
+        outdir=lambda wildcards, output: f"{pileups_folder}/{wildcards.folder}",
     threads: 8
     resources:
-        mem_mb = lambda wildcards, threads: threads*16*1024,
-        runtime = 24*60
+        mem_mb=lambda wildcards, threads: threads * 16 * 1024,
+        runtime=24 * 60,
     shell:
         f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --n_proc {{threads}} --nshifts {shifts} --outdir {{params.outdir}} --outname {{params.outname}}"
 
+
 rule make_pileups_shifts_local:
     input:
-        cooler = lambda wildcards: f'{coolfiles_dict[wildcards.sample]}',
-        bedfile = lambda wildcards: f'{outfolders[wildcards.folder]}/{wildcards.bedfile}'
+        cooler=lambda wildcards: f"{coolfiles_dict[wildcards.sample]}",
+        bedfile=(
+            lambda wildcards: f"{outfolders[wildcards.folder]}/{wildcards.bedfile}"
+        ),
     output:
-        f'{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_{shifts}-shifts_local.np.txt'
+        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_{shifts}-shifts_local.np.txt",
     params:
-        outname = lambda wildcards, output: output[0].split('/')[-1],
-        outdir = lambda wildcards, output: f'{pileups_folder}/{wildcards.folder}',
+        outname=lambda wildcards, output: output[0].split("/")[-1],
+        outdir=lambda wildcards, output: f"{pileups_folder}/{wildcards.folder}",
     threads: 4
     resources:
-        mem_mb = lambda wildcards, threads: threads*16*1024,
-        runtime = 24*60
+        mem_mb=lambda wildcards, threads: threads * 16 * 1024,
+        runtime=24 * 60,
     shell:
         f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --local --n_proc {{threads}} --nshifts {shifts} --outdir {{params.outdir}} --outname {{params.outname}}"
 
+
 rule make_pileups_shifts_local_rescaled:
     input:
-        cooler = lambda wildcards: f'{coolfiles_dict[wildcards.sample]}',
-        bedfile = lambda wildcards: f'{outfolders[wildcards.folder]}/{wildcards.bedfile}'
+        cooler=lambda wildcards: f"{coolfiles_dict[wildcards.sample]}",
+        bedfile=(
+            lambda wildcards: f"{outfolders[wildcards.folder]}/{wildcards.bedfile}"
+        ),
     output:
-        f'{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_{shifts}-shifts_local_rescaled.np.txt'
+        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_{shifts}-shifts_local_rescaled.np.txt",
     params:
-        outname = lambda wildcards, output: output[0].split('/')[-1],
-        outdir = lambda wildcards, output: f'{pileups_folder}/{wildcards.folder}',
+        outname=lambda wildcards, output: output[0].split("/")[-1],
+        outdir=lambda wildcards, output: f"{pileups_folder}/{wildcards.folder}",
     threads: 4
     resources:
-        mem_mb = lambda wildcards, threads: threads*16*1024,
-        runtime = 24*60
+        mem_mb=lambda wildcards, threads: threads * 16 * 1024,
+        runtime=24 * 60,
     shell:
         f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --local --rescale --rescale_pad {config['pileups']['rescale_pad']} --n_proc {{threads}} --nshifts {shifts} --outdir {{params.outdir}} --outname {{params.outname}}"
 
+
 rule make_pileups_shifts_distance:
     input:
-        cooler = lambda wildcards: f'{coolfiles_dict[wildcards.sample]}',
-        bedfile = lambda wildcards: f'{outfolders[wildcards.folder]}/{wildcards.bedfile}'
+        cooler=lambda wildcards: f"{coolfiles_dict[wildcards.sample]}",
+        bedfile=(
+            lambda wildcards: f"{outfolders[wildcards.folder]}/{wildcards.bedfile}"
+        ),
     output:
-        f'{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_{shifts}-shifts_dist_{{mindist,[0-9]+}}-{{maxdist,[0-9]+}}.np.txt'
+        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_{shifts}-shifts_dist_{{mindist,[0-9]+}}-{{maxdist,[0-9]+}}.np.txt",
     params:
-        outname = lambda wildcards, output: output[0].split('/')[-1],
-        outdir = lambda wildcards, output: f'{pileups_folder}/{wildcards.folder}',
+        outname=lambda wildcards, output: output[0].split("/")[-1],
+        outdir=lambda wildcards, output: f"{pileups_folder}/{wildcards.folder}",
     threads: 4
     resources:
-        mem_mb = lambda wildcards, threads: threads*16*1024,
-        runtime = 24*60
+        mem_mb=lambda wildcards, threads: threads * 16 * 1024,
+        runtime=24 * 60,
     shell:
         f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --n_proc {{threads}} --nshifts {shifts} --mindist {{wildcards.mindist}} --maxdist {{wildcards.maxdist}} --outdir {{params.outdir}} --outname {{params.outname}}"
 
+
 rule make_pileups_bed2:
     input:
-        cooler = lambda wildcards: f'{coolfiles_dict[wildcards.sample]}',
-        expected = f'{expected_folder}/{{sample}}_{{resolution}}.expected.tsv',
-        bed1 = lambda wildcards: path.join(bedpairs_folder, bedpairs[wildcards.pairname][0]),
-        bed2 = lambda wildcards: path.join(bedpairs_folder, bedpairs[wildcards.pairname][1]),
+        cooler=lambda wildcards: f"{coolfiles_dict[wildcards.sample]}",
+        expected=f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
+        bed1=lambda wildcards: path.join(
+            bedpairs_folder, bedpairs[wildcards.pairname][0]
+        ),
+        bed2=lambda wildcards: path.join(
+            bedpairs_folder, bedpairs[wildcards.pairname][1]
+        ),
     output:
-        f'{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over-paired_{{pairname}}_expected.np.txt'
+        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over-paired_{{pairname}}_expected.np.txt",
     params:
-        outname = lambda wildcards, output: output[0].split('/')[-1],
-        outdir = lambda wildcards, output: f'{pileups_folder}/{bedpairs_folder_name}',
-        args = lambda wildcards: bedpairs_args[wildcards.pairname]
+        outname=lambda wildcards, output: output[0].split("/")[-1],
+        outdir=lambda wildcards, output: f"{pileups_folder}/{bedpairs_folder_name}",
+        args=lambda wildcards: bedpairs_args[wildcards.pairname],
     threads: 8
     resources:
-        mem_mb = lambda wildcards, threads: threads*16*1024,
-        runtime = 24*60
+        mem_mb=lambda wildcards, threads: threads * 16 * 1024,
+        runtime=24 * 60,
     shell:
         f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bed1}} --bed2 {{input.bed2}} --n_proc {{threads}} --expected {{input.expected}} --outdir {{params.outdir}} --outname {{params.outname}} {{params.args}}"
 
+
 rule make_pileups_bed2_distance:
     input:
-        cooler = lambda wildcards: f'{coolfiles_dict[wildcards.sample]}',
-        expected = f'{expected_folder}/{{sample}}_{{resolution}}.expected.tsv',
-        bed1 = lambda wildcards: path.join(bedpairs_folder, bedpairs[wildcards.pairname][0]),
-        bed2 = lambda wildcards: path.join(bedpairs_folder, bedpairs[wildcards.pairname][1]),
+        cooler=lambda wildcards: f"{coolfiles_dict[wildcards.sample]}",
+        expected=f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
+        bed1=lambda wildcards: path.join(
+            bedpairs_folder, bedpairs[wildcards.pairname][0]
+        ),
+        bed2=lambda wildcards: path.join(
+            bedpairs_folder, bedpairs[wildcards.pairname][1]
+        ),
     output:
-        f'{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over-paired_{{pairname}}_expected_dist_{{mindist,[0-9]+}}-{{maxdist,[0-9]+}}.np.txt'
+        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over-paired_{{pairname}}_expected_dist_{{mindist,[0-9]+}}-{{maxdist,[0-9]+}}.np.txt",
     params:
-        outname = lambda wildcards, output: output[0].split('/')[-1],
-        outdir = lambda wildcards, output: f'{pileups_folder}/{wildcards.folder}',
-        args = lambda wildcards: bedpairs_args[wildcards.pairname]
+        outname=lambda wildcards, output: output[0].split("/")[-1],
+        outdir=lambda wildcards, output: f"{pileups_folder}/{wildcards.folder}",
+        args=lambda wildcards: bedpairs_args[wildcards.pairname],
     threads: 4
     resources:
-        mem_mb = lambda wildcards, threads: threads*16*1024,
-        runtime = 24*60
+        mem_mb=lambda wildcards, threads: threads * 16 * 1024,
+        runtime=24 * 60,
     shell:
         f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bed1}} --bed2 {{input.bed2}} --n_proc {{threads}} --expected {{input.expected}} --mindist {{wildcards.mindist}} --maxdist {{wildcards.maxdist}} --outdir {{params.outdir}} --outname {{params.outname}} {{params.args}}"
 
+
 rule make_pileups_bed2_shifts:
     input:
-        cooler = lambda wildcards: f'{coolfiles_dict[wildcards.sample]}',
-        bed1 = lambda wildcards: path.join(bedpairs_folder, bedpairs[wildcards.pairname][0]),
-        bed2 = lambda wildcards: path.join(bedpairs_folder, bedpairs[wildcards.pairname][1]),
+        cooler=lambda wildcards: f"{coolfiles_dict[wildcards.sample]}",
+        bed1=lambda wildcards: path.join(
+            bedpairs_folder, bedpairs[wildcards.pairname][0]
+        ),
+        bed2=lambda wildcards: path.join(
+            bedpairs_folder, bedpairs[wildcards.pairname][1]
+        ),
     output:
-        f'{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over-paired_{{pairname}}_{shifts}-shifts.np.txt'
+        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over-paired_{{pairname}}_{shifts}-shifts.np.txt",
     params:
-        outname = lambda wildcards, output: output[0].split('/')[-1],
-        outdir = lambda wildcards, output: f'{pileups_folder}/{wildcards.folder}',
-        args = lambda wildcards: bedpairs_args[wildcards.pairname]
+        outname=lambda wildcards, output: output[0].split("/")[-1],
+        outdir=lambda wildcards, output: f"{pileups_folder}/{wildcards.folder}",
+        args=lambda wildcards: bedpairs_args[wildcards.pairname],
     threads: 8
     resources:
-        mem_mb = lambda wildcards, threads: threads*16*1024,
-        runtime = 24*60
+        mem_mb=lambda wildcards, threads: threads * 16 * 1024,
+        runtime=24 * 60,
     shell:
         f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bed1}} --bed2 {{input.bed2}} --n_proc {{threads}} --nshifts {shifts} --outdir {{params.outdir}} --outname {{params.outname}} {{params.args}}"
 
+
 rule make_pileups_bed2_shifts_distance:
     input:
-        cooler = lambda wildcards: f'{coolfiles_dict[wildcards.sample]}',
-        bed1 = lambda wildcards: path.join(bedpairs_folder, bedpairs[wildcards.pairname][0]),
-        bed2 = lambda wildcards: path.join(bedpairs_folder, bedpairs[wildcards.pairname][1]),
+        cooler=lambda wildcards: f"{coolfiles_dict[wildcards.sample]}",
+        bed1=lambda wildcards: path.join(
+            bedpairs_folder, bedpairs[wildcards.pairname][0]
+        ),
+        bed2=lambda wildcards: path.join(
+            bedpairs_folder, bedpairs[wildcards.pairname][1]
+        ),
     output:
-        f'{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over-paired_{{pairname}}_{shifts}-shifts_dist_{{mindist,[0-9]+}}-{{maxdist,[0-9]+}}.np.txt'
+        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over-paired_{{pairname}}_{shifts}-shifts_dist_{{mindist,[0-9]+}}-{{maxdist,[0-9]+}}.np.txt",
     params:
-        outname = lambda wildcards, output: output[0].split('/')[-1],
-        outdir = lambda wildcards, output: f'{pileups_folder}/{wildcards.folder}',
-        args = lambda wildcards: bedpairs_args[wildcards.pairname]
+        outname=lambda wildcards, output: output[0].split("/")[-1],
+        outdir=lambda wildcards, output: f"{pileups_folder}/{wildcards.folder}",
+        args=lambda wildcards: bedpairs_args[wildcards.pairname],
     threads: 4
     resources:
-        mem_mb = lambda wildcards, threads: threads*16*1024,
-        runtime = 24*60
+        mem_mb=lambda wildcards, threads: threads * 16 * 1024,
+        runtime=24 * 60,
     shell:
         f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bed1}} --bed2 {{input.bed2}} --n_proc {{threads}} --nshifts {shifts} --mindist {{wildcards.mindist}} --maxdist {{wildcards.maxdist}} --outdir {{params.outdir}} --outname {{params.outname}} {{params.args}}"
 
+
 rule call_loops_chromosight:
     input:
-        cooler = lambda wildcards: f'{coolfiles_dict[wildcards.sample]}',
+        cooler=lambda wildcards: f"{coolfiles_dict[wildcards.sample]}",
     output:
-        f'{loop_folder}/Loops_chromosight_{{sample}}_{{resolution,[0-9]+}}.bedpe',
+        f"{loop_folder}/Loops_chromosight_{{sample}}_{{resolution,[0-9]+}}.bedpe",
     threads: 4
     resources:
-        mem_mb = lambda wildcards, threads: threads*16*1024,
-        runtime = 24*60
+        mem_mb=lambda wildcards, threads: threads * 16 * 1024,
+        runtime=24 * 60,
     shell:
         f"chromosight detect --pattern loops --no-plotting -t {{threads}} {{input.cooler}}::resolutions/{{wildcards.resolution}} {loop_folder}/loops_chromosight_{{wildcards.sample}}_{{wildcards.resolution}} &&"
         f"tail -n +2 {loop_folder}/loops_chromosight_{{wildcards.sample}}_{{wildcards.resolution}}.tsv | cut -f1-6 > {{output}}"
 
+
 rule call_loops_mustache_chrom:
     input:
-        cooler = lambda wildcards: f'{coolfiles_dict[wildcards.sample]}',
+        cooler=lambda wildcards: f"{coolfiles_dict[wildcards.sample]}",
     output:
-        temp(f'{loop_folder}/Mustache_bychr/Loops_mustache_{{sample}}_{{resolution,[0-9]+}}_{{chrom}}.bedpe'),
+        temp(
+            f"{loop_folder}/Mustache_bychr/Loops_mustache_{{sample}}_{{resolution,[0-9]+}}_{{chrom}}.bedpe"
+        ),
     threads: 4
     params:
-        args = config['call_dots']['methods']['mustache']['arguments'],
-        dist = config['call_dots']['methods']['mustache']['max_dist']
+        args=config["call_dots"]["methods"]["mustache"]["arguments"],
+        dist=config["call_dots"]["methods"]["mustache"]["max_dist"],
     resources:
-        mem_mb = lambda wildcards, threads: threads*16*1024,
-        runtime = 24*60
+        mem_mb=lambda wildcards, threads: threads * 16 * 1024,
+        runtime=24 * 60,
     conda:
         "envs/mustache_env.yml"
     shell:
         f"python3 -m mustache -p {{threads}} -f {{input.cooler}} -r {{wildcards.resolution}} "
         f"-ch {{wildcards.chrom}} -d {{params.dist}} {{params.args}} -o {{output}}"
 
+
 rule call_loops_mustache:
     input:
-        lambda wildcards: [f'{loop_folder}/Mustache_bychr/Loops_mustache_{{sample}}_{{resolution,[0-9]+}}_{chrom}.bedpe' for chrom in chroms],
+        lambda wildcards: [
+            f"{loop_folder}/Mustache_bychr/Loops_mustache_{{sample}}_{{resolution,[0-9]+}}_{chrom}.bedpe"
+            for chrom in chroms
+        ],
     output:
-        f'{loop_folder}/Loops_mustache_{{sample}}_{{resolution,[0-9]+}}.bedpe',
+        f"{loop_folder}/Loops_mustache_{{sample}}_{{resolution,[0-9]+}}.bedpe",
     resources:
-        mem_mb = 1024,
-        runtime = 60
+        mem_mb=1024,
+        runtime=60,
     shell:
         f"awk 'FNR-1' {{input}} | cut -f1-6 > {{output}}"
 
+
 rule make_differential_insulation:
     input:
-        insulation_WT = f'{insulation_folder}/{{sampleWT}}_{{resolution}}_{{window}}.insulation.tsv',
-        insulation_KO = f'{insulation_folder}/{{sampleKO}}_{{resolution}}_{{window}}.insulation.tsv'
+        insulation_WT=(
+            f"{insulation_folder}/{{sampleWT}}_{{resolution}}_{{window}}.insulation.tsv"
+        ),
+        insulation_KO=(
+            f"{insulation_folder}/{{sampleKO}}_{{resolution}}_{{window}}.insulation.tsv"
+        ),
     output:
-        f'{boundary_folder}/Insulation_{{sampleWT}}_not_{{sampleKO}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.bed'
+        f"{boundary_folder}/Insulation_{{sampleWT}}_not_{{sampleKO}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.bed",
     threads: 1
     resources:
-        mem_mb = 1024,
-        runtime = 60
+        mem_mb=1024,
+        runtime=60,
     run:
         from skimage.filters import threshold_li, threshold_otsu
-        if config['insulation']['strength_threshold'] == 'Li':
+
+        if config["insulation"]["strength_threshold"] == "Li":
             thresholding_fun = threshold_li
-        elif config['insulation']['strength_threshold'] == 'Otsu':
+        elif config["insulation"]["strength_threshold"] == "Otsu":
             thresholding_fun = threshold_otsu
         else:
             try:
-                thr = float(config['insulation']['strength_threshold'])
+                thr = float(config["insulation"]["strength_threshold"])
                 thresholding_fun = lambda x: thr
             except ValueError:
-                raise ValueError('Insulating boundary strength threshold can be Li, Otsu or a float')
-        insWT = pd.read_csv(input.insulation_WT, sep='\t')
-        insWT = insWT[~insWT['is_bad_bin']].drop(columns=['is_bad_bin'])
-        insKO = pd.read_csv(input.insulation_KO, sep='\t')
-        insKO = insKO[~insKO['is_bad_bin']].drop(columns=['is_bad_bin'])
-        ins = pd.merge(insWT, insKO, suffixes=('WT', 'KO'), on=['chrom', 'start', 'end'])
-        diff_ins = ins[(ins[f'boundary_strength_{wildcards.window}WT']/ins[f'boundary_strength_{wildcards.window}KO']>=config['insulation']['fold_change_threshold']) | ((ins[f'boundary_strength_{wildcards.window}WT']>thresholding_fun(insWT[f'boundary_strength_{wildcards.window}'].dropna().values)) & np.isnan(ins[f'boundary_strength_{wildcards.window}KO']))]
-        diff_ins[['chrom', 'start', 'end']].to_csv(output[0], header=False, index=False, sep='\t')
+                raise ValueError(
+                    "Insulating boundary strength threshold can be Li, Otsu or a float"
+                )
+        insWT = pd.read_csv(input.insulation_WT, sep="\t")
+        insWT = insWT[~insWT["is_bad_bin"]].drop(columns=["is_bad_bin"])
+        insKO = pd.read_csv(input.insulation_KO, sep="\t")
+        insKO = insKO[~insKO["is_bad_bin"]].drop(columns=["is_bad_bin"])
+        ins = pd.merge(
+            insWT, insKO, suffixes=("WT", "KO"), on=["chrom", "start", "end"]
+        )
+        diff_ins = ins[
+            (
+                ins[f"boundary_strength_{wildcards.window}WT"]
+                / ins[f"boundary_strength_{wildcards.window}KO"]
+                >= config["insulation"]["fold_change_threshold"]
+            )
+            | (
+                (
+                    ins[f"boundary_strength_{wildcards.window}WT"]
+                    > thresholding_fun(
+                        insWT[f"boundary_strength_{wildcards.window}"].dropna().values
+                    )
+                )
+                & np.isnan(ins[f"boundary_strength_{wildcards.window}KO"])
+            )
+        ]
+        diff_ins[["chrom", "start", "end"]].to_csv(
+            output[0], header=False, index=False, sep="\t"
+        )
+
 
 rule make_tads:
     input:
-        insulation = f'{insulation_folder}/{{sample}}_{{resolution}}_{{window}}.insulation.tsv'
+        insulation=(
+            f"{insulation_folder}/{{sample}}_{{resolution}}_{{window}}.insulation.tsv"
+        ),
     output:
-        f'{tad_folder}/TADs_{{sample}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.bed'
+        f"{tad_folder}/TADs_{{sample}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.bed",
     threads: 1
     resources:
-        mem_mb = 1024,
-        runtime = 60
+        mem_mb=1024,
+        runtime=60,
     run:
         from skimage.filters import threshold_li, threshold_otsu
-        if config['insulation']['strength_threshold'] == 'Li':
+
+        if config["insulation"]["strength_threshold"] == "Li":
             thresholding_fun = threshold_li
-        elif config['insulation']['strength_threshold'] == 'Otsu':
+        elif config["insulation"]["strength_threshold"] == "Otsu":
             thresholding_fun = threshold_otsu
         else:
             try:
-                thr = float(config['insulation']['strength_threshold'])
+                thr = float(config["insulation"]["strength_threshold"])
                 thresholding_fun = lambda x: thr
             except ValueError:
-                raise ValueError('Insulating boundary strength threshold can be Li, Otsu or a float')
+                raise ValueError(
+                    "Insulating boundary strength threshold can be Li, Otsu or a float"
+                )
 
-        ins = pd.read_csv(input.insulation, sep='\t')
-        ins = ins[~ins['is_bad_bin']].drop(columns=['is_bad_bin'])
-        ins = ins[ins[f'boundary_strength_{wildcards.window}']>thresholding_fun(ins[f'boundary_strength_{wildcards.window}'].dropna().values)][['chrom', 'start', 'end']]
-        tads = ins.groupby('chrom').apply(lambda x: pd.concat([x[:-1].reset_index(drop=True), x[1:].reset_index(drop=True)], axis=1, ignore_index=True)).reset_index(drop=True)
-        tads.columns=[['chrom1', 'start1', 'end1', 'chrom2', 'start2', 'end2']]
+        ins = pd.read_csv(input.insulation, sep="\t")
+        ins = ins[~ins["is_bad_bin"]].drop(columns=["is_bad_bin"])
+        ins = ins[
+            ins[f"boundary_strength_{wildcards.window}"]
+            > thresholding_fun(
+                ins[f"boundary_strength_{wildcards.window}"].dropna().values
+            )
+        ][["chrom", "start", "end"]]
+        tads = (
+            ins.groupby("chrom")
+            .apply(
+                lambda x: pd.concat(
+                    [x[:-1].reset_index(drop=True), x[1:].reset_index(drop=True)],
+                    axis=1,
+                    ignore_index=True,
+                )
+            )
+            .reset_index(drop=True)
+        )
+        tads.columns = [["chrom1", "start1", "end1", "chrom2", "start2", "end2"]]
         tads.columns = tads.columns.get_level_values(0)
-        tads = tads[(tads['start2']-tads['start1'])<=config['call_TADs']['max_tad_length']].reset_index(drop=True)
-        tads['start'] = (tads['start1']+tads['end1'])//2
-        tads['end'] = (tads['start2']+tads['end2'])//2
-        tads = tads[['chrom1', 'start', 'end']]
-        tads.to_csv(output[0], header=False, index=False, sep='\t')
+        tads = tads[
+            (tads["start2"] - tads["start1"]) <= config["call_TADs"]["max_tad_length"]
+        ].reset_index(drop=True)
+        tads["start"] = (tads["start1"] + tads["end1"]) // 2
+        tads["end"] = (tads["start2"] + tads["end2"]) // 2
+        tads = tads[["chrom1", "start", "end"]]
+        tads.to_csv(output[0], header=False, index=False, sep="\t")
+
 
 rule make_insulation:
     input:
-        cooler = lambda wildcards: f'{coolfiles_dict[wildcards.sample]}',
+        cooler=lambda wildcards: f"{coolfiles_dict[wildcards.sample]}",
     output:
-        f'{insulation_folder}/{{sample}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.insulation.tsv'
+        f"{insulation_folder}/{{sample}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.insulation.tsv",
     params:
-        chunksize = lambda wildcards: config['insulation'].get('chunksize', 20000000)
+        chunksize=lambda wildcards: config["insulation"].get("chunksize", 20000000),
     threads: 1
     resources:
-        mem_mb = 32*1024,
-        runtime = 240
+        mem_mb=32 * 1024,
+        runtime=240,
     shell:
         "cooltools diamond-insulation {input.cooler}::resolutions/{wildcards.resolution} {wildcards.window} --chunksize {params.chunksize} > {output}"
 
+
 rule make_saddles:
     input:
-        eigenvector = f'{eigenvectors_folder}/{{sample}}_{{resolution}}_eigenvectors.cis.vecs.tsv',
-        expected = f'{expected_folder}/{{sample}}_{{resolution}}.expected.tsv',
-        cooler = lambda wildcards: f'{coolfiles_dict[wildcards.sample]}',
+        eigenvector=(
+            f"{eigenvectors_folder}/{{sample}}_{{resolution}}_eigenvectors.cis.vecs.tsv"
+        ),
+        expected=f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
+        cooler=lambda wildcards: f"{coolfiles_dict[wildcards.sample]}",
     output:
-        saddle = f'{saddles_folder}/{{sample}}_{{resolution,[0-9]+}}_{{bins,[0-9]+}}{{dist,.*}}.saddledump.npz',
-        digitized = f'{saddles_folder}/{{sample}}_{{resolution,[0-9]+}}_{{bins,[0-9]+}}{{dist,.*}}.digitized.tsv',
+        saddle=f"{saddles_folder}/{{sample}}_{{resolution,[0-9]+}}_{{bins,[0-9]+}}{{dist,.*}}.saddledump.npz",
+        digitized=f"{saddles_folder}/{{sample}}_{{resolution,[0-9]+}}_{{bins,[0-9]+}}{{dist,.*}}.digitized.tsv",
     params:
-        prefix = lambda wildcards, output: output['saddle'][:-15],
-        distargs = lambda wildcards: split_dist(wildcards.dist, '--min-dist', '--max-dist'),
-        args = config['saddle']['args']
+        prefix=lambda wildcards, output: output["saddle"][:-15],
+        distargs=lambda wildcards: split_dist(
+            wildcards.dist, "--min-dist", "--max-dist"
+        ),
+        args=config["saddle"]["args"],
     threads: 1
     resources:
-        mem_mb = 8*1024,
-        runtime = 60
+        mem_mb=8 * 1024,
+        runtime=60,
     shell:
         "cooltools compute-saddle -o {params.prefix} {params.args} {params.distargs} {input.cooler}::resolutions/{wildcards.resolution} {input.eigenvector} {input.expected}"
 
+
 rule make_expected:
     input:
-        cooler = lambda wildcards: f'{coolfiles_dict[wildcards.sample]}',
+        cooler=lambda wildcards: f"{coolfiles_dict[wildcards.sample]}",
     output:
-        f'{expected_folder}/{{sample}}_{{resolution,[0-9]+}}.expected.tsv'
+        f"{expected_folder}/{{sample}}_{{resolution,[0-9]+}}.expected.tsv",
     threads: 4
     resources:
-        mem_mb = lambda wildcards, threads: threads*8*1024,
-        runtime = 60
+        mem_mb=lambda wildcards, threads: threads * 8 * 1024,
+        runtime=60,
     shell:
         "cooltools compute-expected -p {threads} {input.cooler}::resolutions/{wildcards.resolution} --ignore-diags 0 -o {output}"
 
+
 rule make_eigenvectors:
     input:
-        reftrack = f'{config["path_genome_folder"]}/gc/{genome}_{{resolution}}_gc.bedgraph',
-        cooler = lambda wildcards: f'{coolfiles_dict[wildcards.sample]}',
+        reftrack=(
+            f'{config["path_genome_folder"]}/gc/{genome}_{{resolution}}_gc.bedgraph'
+        ),
+        cooler=lambda wildcards: f"{coolfiles_dict[wildcards.sample]}",
     output:
-        f'{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.vecs.tsv',
-        f'{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.lam.txt',
-        f'{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.bw'
+        f"{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.vecs.tsv",
+        f"{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.lam.txt",
+        f"{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.bw",
     params:
-        prefix = lambda wildcards, output: output[0][:-13]
+        prefix=lambda wildcards, output: output[0][:-13],
     threads: 1
     resources:
-        mem_mb = 8*1024,
-        runtime = 60
+        mem_mb=8 * 1024,
+        runtime=60,
     shell:
         "cooltools call-compartments --reference-track {input.reftrack} --bigwig {input.cooler}::resolutions/{wildcards.resolution} -o {params.prefix}"
 
+
 rule make_gc:
     input:
-        fasta = f'{config["path_genome_fasta"]}',
-        bins = f'{config["path_genome_folder"]}/bins/{genome}_{{resolution}}_bins.bed'
+        fasta=f'{config["path_genome_fasta"]}',
+        bins=f'{config["path_genome_folder"]}/bins/{genome}_{{resolution}}_bins.bed',
     output:
-        f'{config["path_genome_folder"]}/gc/{genome}_{{resolution,[0-9]+}}_gc.bedgraph'
+        f'{config["path_genome_folder"]}/gc/{genome}_{{resolution,[0-9]+}}_gc.bedgraph',
     threads: 1
     resources:
-        mem_mb = 8*1024,
-        runtime = 60
+        mem_mb=8 * 1024,
+        runtime=60,
     shell:
         "cooltools genome gc {input.bins} {input.fasta} > {output}"
 
+
 rule make_bins:
     input:
-        chromsizes = f'{config["chromsizes"]}'
+        chromsizes=f'{config["chromsizes"]}',
     output:
-        f'{config["path_genome_folder"]}/bins/{genome}_{{resolution,[0-9]+}}_bins.bed'
+        f'{config["path_genome_folder"]}/bins/{genome}_{{resolution,[0-9]+}}_bins.bed',
     threads: 1
     resources:
-        mem_mb = 8*1024,
-        runtime = 60
+        mem_mb=8 * 1024,
+        runtime=60,
     shell:
         "cooltools genome binnify {input} {wildcards.resolution} > {output}"
 
+
 rule download_data:
     output:
-        f'{coolers_folder}/{{sample}}.mcool'
+        f"{coolers_folder}/{{sample}}.mcool",
     threads: 1
     resources:
-        mem_mb = 256,
-        runtime = 60
+        mem_mb=256,
+        runtime=60,
     params:
-        url = lambda wildcards: urldict[wildcards.sample]
+        url=lambda wildcards: urldict[wildcards.sample],
     run:
         import requests
         import tqdm
+
+
         def download_file(url, local_filename):
-            print('downloading:', url, 'as ', local_filename)
+            print("downloading:", url, "as ", local_filename)
             with requests.get(url, stream=True) as r:
                 r.raise_for_status()
-                with open(local_filename, 'wb') as f:
+                with open(local_filename, "wb") as f:
                     for chunk in tqdm.tqdm(r.iter_content(chunk_size=8192)):
                         f.write(chunk)
             return local_filename
+
+
         print(output)
         download_file(params.url, str(output))
