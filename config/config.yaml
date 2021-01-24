@@ -40,6 +40,7 @@ annotations: config/annotations.tsv
 # and results saved in results/
 inputs_folder: inputs
 beds_folder: inputs/beds
+bedpes_folder: inputs/bedpes
 coolers_folder: inputs/coolers
 
 project_folder: results
@@ -51,6 +52,7 @@ insulation_folder: results/insulation
 tad_folder: results/tads
 loop_folder: results/loops
 boundary_folder: results/boundaries
+loopability_folder: results/loopability
 
 resolutions:
     - 1000000
@@ -79,26 +81,28 @@ saddle:
 pileups:
     do: True
     resolution_limits:
-        - 1000
+        - 5000
         - 10000
     distance_limits:
-        - 12500
-        - 102400000
+        - 500000
+        - 1000000
+        # - 12500
+        # - 102400000
     shifts: 1
     rescale_pad: 1
 
     bed_pairs:
         do: False # Can use even with pileups['do'] == False
-        path: /exports/igmm/eddie/wendy-lab/ilia/Rif1/beds/bed_pairs/
+        path: bed_pairs_folder_path
         input:
             convergent_CTCF:
                 arguments: ""
                 files:
-                    -  CTCF_ES_pos_mm10.bed
-                    -  CTCF_ES_neg_mm10.bed
+                    -  file1.bed
+                    -  file2.bed
 loopability:
     do: False
-    path: /exports/igmm/eddie/wendy-lab/ilia/Rif1/loopability/
+    path: loopability_folder_path
     n_random_samples: 20
     resolutions:
         - 1000
@@ -108,7 +112,7 @@ loopability:
     input:
         input_name:
             arguments: "--subset 10000 --mindist 2000000"
-            file: file_path
+            file: file_path.bed
 
 insulation:
     do: True
