@@ -34,6 +34,8 @@ samples: config/samples.tsv
 # Annotations file with two columns: annotation name ("bedname") and "file" (URLs or local file)
 # Downloaded bed files will be stored in beds_folder
 annotations: config/annotations.tsv
+# Rules about correpondence between samples and annotations can be specified here
+samples_annotations_combinations: config/samples_annotations.tsv
 
 # folder definition is optional
 # by default everything is done using inputs in inputs/
@@ -101,18 +103,17 @@ pileups:
                     -  file1.bed
                     -  file2.bed
 loopability:
-    do: False
-    path: loopability_folder_path
-    n_random_samples: 20
+    do: True
+    n_random_samples: 1
     resolutions:
         - 1000
         - 10000
     shifts: 1
-    samples:
+    samples: test
     input:
-        input_name:
+        ENCODE_CREs_HFF:
             arguments: "--subset 10000 --mindist 2000000"
-            file: file_path.bed
+            file: inputs/beds/ENCODE_CREs_HFF.bed
 
 insulation:
     do: True

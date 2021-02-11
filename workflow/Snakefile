@@ -116,6 +116,7 @@ bed_df.loc[:, "local_path"] = bed_df.apply(
     lambda x: make_local_path(x.bedname, x.format) if x.will_download else x.file, axis=1
 )
 bed_df = bed_df.set_index("bedname")
+bed_df[['distal', 'by_distance', 'local', 'local_rescaled']] = ~bed_df[['distal', 'by_distance', 'local', 'local_rescaled']].isna()
 bedlinks_dict = dict(
     bed_df.query("will_download")["file"]
 )  # dict with beds to be downloaded
@@ -123,8 +124,12 @@ bedfiles_dict = dict(bed_df['local_path'])
 bedfiles_dict.update(local_bed_names)
 bedfiles_dict.update(local_bedpe_names)
 bedfiles = list(bedfiles_dict.keys())
+# bedfiles_pileups = [bf for bf in bedfiles if bed_df.loc[bf, 'pileups']]
 bedtype_dict = dict(bed_df['format'])
 # bedpe_pileups_mindist, bedpe_pileups_maxdist = config['bedpe_pileups_distance_limits']
+
+samples_annotations = ~pd.read_csv(config['samples_annotations_combinations'],
+sep='\t', header=0, index_col=0).isna()
 ### Data resolutions
 ignore_resolutions_more_than = config["ignore_resolutions_more_than"]
 resolutions = config["resolutions"]  ##### Assume same resolutions in all coolers
@@ -291,18 +296,29 @@ for file in tads + diff_boundaries:
     bedfiles_dict[name] = file
     bedtype_dict[name] = 'bed'
 
-beds_pileups = (
-    expand(
-        f"{pileups_folder}/{beds_folder_name}/{{sample}}-{{resolution}}_over_{{bedfile}}_{{norm}}{{mode}}.np.txt",
-        sample=samples,
-        resolution=pileup_resolutions,
-        bedfile=bedfiles,
-        norm=["expected", f"{shifts}-shifts"],
-        mode=["", "_local"] + separations,
-    )
-    if config["pileups"]["do"]
-    else []
-)
+beds_pileups = []
+if config["pileups"]["do"]:
+    for bedname, row in bed_df.iterrows():
+        modes = []
+        if row.distal:
+            modes += ['']
+        if row.by_distance:
+            modes += separations
+        if row.local:
+            modes += ['_local']
+        if row.local_rescaled:
+            modes += ['_local_rescaled']
+        for sample in samples:
+            if bedname in samples_annotations.columns and not samples_annotations.loc[sample, bedname]:
+                continue
+            beds_pileups += expand(
+                f"{pileups_folder}/{beds_folder_name}/{sample}-{{resolution}}_over_{bedname}_{{norm}}{{mode}}.np.txt",
+
+                resolution=pileup_resolutions,
+                norm=["expected", f"{shifts}-shifts"],
+                mode=modes,
+            )
+
 paired_beds_pileups = (
     expand(
         f"{pileups_folder}/{bedpairs_folder_name}/{{sample}}-{{resolution}}_over-paired_{{pairname}}_{{norm}}{{mode}}.np.txt",
@@ -318,7 +334,7 @@ paired_beds_pileups = (
 )
 loopability_tables = (
     expand(
-        f"{pileups_folder}/{loopability_folder_name}/loopability/{{sample}}-{{resolution}}_over_{{bedname}}_{{norm}}_loopability_seed{{seed}}.tsv",
+        f"{loopability_folder}/{{sample}}-{{resolution}}_over_{{bedname}}_{{norm}}_loopability_seed{{seed}}.tsv",
         sample=config["loopability"]["samples"],
         resolution=config["loopability"]["resolutions"],
         bedname=loopability.keys(),
@@ -446,21 +462,18 @@ rule loopability:
     input:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
         expected=f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
-        bedfile=lambda wildcards: bedfiles_dict[wildcards.bedfile],
+        bedfile=lambda wildcards: bedfiles_dict[wildcards.bedname],
     output:
-        f"{pileups_folder}/{{folder}}/loopability/{{sample}}-{{resolution,[0-9]+}}_over_{{bedname}}_expected_loopability_seed{{seed}}.tsv",
+        f"{loopability_folder}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedname}}_expected_loopability_seed{{seed}}.tsv",
     params:
         outname=lambda wildcards, output: output[0].split("/")[-1],
-        outdir=(
-            lambda wildcards, output: f"{pileups_folder}/{wildcards.folder}/loopability"
-        ),
         args=lambda wildcards: loopability_args[wildcards.bedname],
     threads: 8
     resources:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
     shell:
-        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --basetype bed --by_window --seed {{wildcards.seed}} --n_proc {{threads}} --expected {{input.expected}} --outdir {{params.outdir}} --outname {{params.outname}} {{params.args}}"
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --basetype bed --by_window --seed {{wildcards.seed}} --n_proc {{threads}} --expected {{input.expected}} --outdir {{loopability_folder}} --outname {{params.outname}} {{params.args}}"
 
 
 rule loopability_shifts:
@@ -471,16 +484,13 @@ rule loopability_shifts:
         f"{loopability_folder}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedname}}_{{loopability_shifts}}-shifts_loopability_seed{{seed}}.tsv",
     params:
         outname=lambda wildcards, output: output[0].split("/")[-1],
-        outdir=(
-            lambda wildcards, output: f"{pileups_folder}/{wildcards.folder}/loopability"
-        ),
         args=lambda wildcards: loopability_args[wildcards.bedname],
     threads: 8
     resources:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
     shell:
-        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --basetype bed --by_window --seed {{wildcards.seed}} --n_proc {{threads}} --nshifts {{wildcards.loopability_shifts}} --outdir {{params.outdir}} --outname {{params.outname}} {{params.args}}"
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --basetype bed --by_window --seed {{wildcards.seed}} --n_proc {{threads}} --nshifts {{wildcards.loopability_shifts}} --outdir {{loopability_folder}} --outname {{params.outname}} {{params.args}}"
 
 
 rule make_pileups_shifts:
@@ -738,7 +748,7 @@ rule make_differential_insulation:
             (
                 ins[f"boundary_strength_{wildcards.window}WT"]
                 / ins[f"boundary_strength_{wildcards.window}KO"]
-                >= config["insulation"]["fold_change_threshold"]
+                >= config["compare_boundaries"]["fold_change_threshold"]
             )
             | (
                 (
