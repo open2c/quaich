@@ -116,7 +116,7 @@ bed_df.loc[:, "local_path"] = bed_df.apply(
     lambda x: make_local_path(x.bedname, x.format) if x.will_download else x.file, axis=1
 )
 bed_df = bed_df.set_index("bedname")
-bed_df[['distal', 'by_distance', 'local', 'local_rescaled']] = ~bed_df[['distal', 'by_distance', 'local', 'local_rescaled']].isna()
+bed_df[['distal', 'by_distance', 'local', 'local_rescaled', 'loopability']] = ~bed_df[['distal', 'by_distance', 'local', 'local_rescaled', 'loopability']].isna()
 bedlinks_dict = dict(
     bed_df.query("will_download")["file"]
 )  # dict with beds to be downloaded
@@ -188,13 +188,7 @@ if config["pileups"]["bed_pairs"]["do"]:
     }
 
 if config["loopability"]["do"]:
-
-    loopability = {
-        name: config["loopability"]["input"][name]["file"] for name in config["loopability"]["input"].keys()
-    }
-    loopability_args = {
-        name: " " + config["loopability"]["input"][name]["arguments"] for name in config["loopability"]["input"].keys()
-    }
+    loopability_args = config["loopability"]["arguments"]
     loopability_shifts = config["loopability"]["shifts"]
 
 if config["insulation"]["do"]:
@@ -332,18 +326,19 @@ paired_beds_pileups = (
     if config["pileups"]["do"] and config["pileups"]["bed_pairs"]["do"]
     else []
 )
-loopability_tables = (
-    expand(
-        f"{loopability_folder}/{{sample}}-{{resolution}}_over_{{bedname}}_{{norm}}_loopability_seed{{seed}}.tsv",
-        sample=config["loopability"]["samples"],
-        resolution=config["loopability"]["resolutions"],
-        bedname=loopability.keys(),
-        norm=["expected", f"{loopability_shifts}-shifts"],
-        seed=np.arange(config["loopability"]["n_random_samples"]),
-    )
-    if config["loopability"]["do"]
-    else []
-)
+loopability_tables = []
+if config["loopability"]["do"]:
+    for bedname, row in bed_df.iterrows():
+        if row.loopability:
+            for sample in samples:
+                if bedname in samples_annotations.columns and not samples_annotations.loc[sample, bedname]:
+                    continue
+                loopability_tables += expand(
+                        f"{loopability_folder}/{sample}-{{resolution}}_over_{bedname}_{{norm}}_loopability_seed{{seed}}.tsv",
+                        resolution=config["loopability"]["resolutions"],
+                        norm=["expected", f"{loopability_shifts}-shifts"],
+                        seed=np.arange(config["loopability"]["n_random_samples"]),
+                    )
 saddles = (
     expand(
         f"{saddles_folder}/{{sample}}_{{resolution}}_{{bins}}{{dist}}.{{ending}}",
@@ -467,30 +462,28 @@ rule loopability:
         f"{loopability_folder}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedname}}_expected_loopability_seed{{seed}}.tsv",
     params:
         outname=lambda wildcards, output: output[0].split("/")[-1],
-        args=lambda wildcards: loopability_args[wildcards.bedname],
     threads: 8
     resources:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
     shell:
-        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --basetype bed --by_window --seed {{wildcards.seed}} --n_proc {{threads}} --expected {{input.expected}} --outdir {{loopability_folder}} --outname {{params.outname}} {{params.args}}"
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --basetype bed --by_window --seed {{wildcards.seed}} --n_proc {{threads}} --expected {{input.expected}} --outdir {{loopability_folder}} --outname {{params.outname}} {loopability_args}"
 
 
 rule loopability_shifts:
     input:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
-        bedfile=lambda wildcards: loopability[wildcards.bedname],
+        bedfile=lambda wildcards: bedfiles_dict[wildcards.bedname],
     output:
         f"{loopability_folder}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedname}}_{{loopability_shifts}}-shifts_loopability_seed{{seed}}.tsv",
     params:
         outname=lambda wildcards, output: output[0].split("/")[-1],
-        args=lambda wildcards: loopability_args[wildcards.bedname],
     threads: 8
     resources:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
     shell:
-        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --basetype bed --by_window --seed {{wildcards.seed}} --n_proc {{threads}} --nshifts {{wildcards.loopability_shifts}} --outdir {{loopability_folder}} --outname {{params.outname}} {{params.args}}"
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --basetype bed --by_window --seed {{wildcards.seed}} --n_proc {{threads}} --nshifts {{wildcards.loopability_shifts}} --outdir {{loopability_folder}} --outname {{params.outname}} {loopability_args}"
 
 
 rule make_pileups_shifts:

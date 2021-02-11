@@ -110,10 +110,7 @@ loopability:
         - 10000
     shifts: 1
     samples: test
-    input:
-        ENCODE_CREs_HFF:
-            arguments: "--subset 10000 --mindist 2000000"
-            file: inputs/beds/ENCODE_CREs_HFF.bed
+    arguments: "--subset 1000 --maxdist 2000000"
 
 insulation:
     do: True
