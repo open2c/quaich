@@ -303,7 +303,9 @@ if config["pileups"]["do"]:
         if row.local_rescaled:
             modes += ['_local_rescaled']
         for sample in samples:
-            if bedname in samples_annotations.columns and not samples_annotations.loc[sample, bedname]:
+            if sample not in samples_annotations.index:
+                continue
+            if bedname in samples_annotations.columns  and not samples_annotations.loc[sample, bedname]:
                 continue
             beds_pileups += expand(
                 f"{pileups_folder}/{beds_folder_name}/{sample}-{{resolution}}_over_{bedname}_{{norm}}{{mode}}.np.txt",
@@ -331,6 +333,8 @@ if config["loopability"]["do"]:
     for bedname, row in bed_df.iterrows():
         if row.loopability:
             for sample in samples:
+                if sample not in samples_annotations.index:
+                    continue
                 if bedname in samples_annotations.columns and not samples_annotations.loc[sample, bedname]:
                     continue
                 loopability_tables += expand(
