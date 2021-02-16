@@ -27,13 +27,22 @@ ignore_chroms:
     - chrY
     - chrM
 
+# Samples file with two columns: sample name ("sample") and path/url with cool file ("file").
+# If it's URL, it will be downloaded. If the file is already downloaded it will not be overwritten.
+# The downloaded file will be stored as {coolers_folder}/{sample}.mcool
 samples: config/samples.tsv
+# Annotations file with two columns: annotation name ("bedname") and "file" (URLs or local file)
+# Downloaded bed files will be stored in beds_folder
+annotations: config/annotations.tsv
+# Rules about correpondence between samples and annotations can be specified here
+samples_annotations_combinations: config/samples_annotations.tsv
 
 # folder definition is optional
 # by default everything is done using inputs in inputs/
 # and results saved in results/
 inputs_folder: inputs
 beds_folder: inputs/beds
+bedpes_folder: inputs/bedpes
 coolers_folder: inputs/coolers
 
 project_folder: results
@@ -45,6 +54,7 @@ insulation_folder: results/insulation
 tad_folder: results/tads
 loop_folder: results/loops
 boundary_folder: results/boundaries
+loopability_folder: results/loopability
 
 resolutions:
     - 1000000
@@ -73,36 +83,36 @@ saddle:
 pileups:
     do: True
     resolution_limits:
-        - 1000
+        - 5000
         - 10000
     distance_limits:
-        - 12500
-        - 102400000
+        - 500000
+        - 1000000
+        # - 12500
+        # - 102400000
     shifts: 1
     rescale_pad: 1
 
     bed_pairs:
         do: False # Can use even with pileups['do'] == False
-        path: /exports/igmm/eddie/wendy-lab/ilia/Rif1/beds/bed_pairs/
+        path: bed_pairs_folder_path
         input:
             convergent_CTCF:
                 arguments: ""
                 files:
-                    -  CTCF_ES_pos_mm10.bed
-                    -  CTCF_ES_neg_mm10.bed
+                    -  file1.bed
+                    -  file2.bed
 loopability:
-    do: False
-    path: /exports/igmm/eddie/wendy-lab/ilia/Rif1/loopability/
-    n_random_samples: 20
+    do: True
+    n_random_samples: 1
     resolutions:
         - 1000
         - 10000
     shifts: 1
-    samples:
-    input:
-        input_name:
-            arguments: "--subset 10000 --mindist 2000000"
-            file: file_path
+    samples: test
+    arguments:
+        short_range: "--subset 1000 --maxdist 2000000"
+        long_range: "--subset 1000 --mindist 2000000"
 
 insulation:
     do: True
@@ -128,13 +138,13 @@ call_dots:
             arguments: "-pt 0.05 -st 0.8"
     resolution: 10000
     samples:
-        - test
+        - test_cool
 
 compare_boundaries:
     do: False
     samples:
-        - test
-        - test
+        - test_cool
+        - test_cool
     fold_change_threshold: 5
 
 call_TADs: # By just combining strong boundaries
@@ -148,4 +158,4 @@ call_TADs: # By just combining strong boundaries
             - 1000000
     max_tad_length: 1500000
     samples:
-        - test
+        - test_cool
