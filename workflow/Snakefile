@@ -460,7 +460,7 @@ rule loopability:
         expected=f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
         bedfile=lambda wildcards: bedfiles_dict[wildcards.bedname],
     output:
-        f"{loopability_folder}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedname}}_expected_loopability_seed{{seed}}_{{args}}.tsv",
+        f"{loopability_folder}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedname}}_expected_loopability_seed{{seed,[0-9]+}}_{{args}}.tsv",
     params:
         outname=lambda wildcards, output: output[0].split("/")[-1],
         args=lambda wildcards: loopability_args[wildcards.args]
@@ -477,7 +477,7 @@ rule loopability_shifts:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
         bedfile=lambda wildcards: bedfiles_dict[wildcards.bedname],
     output:
-        f"{loopability_folder}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedname}}_{{loopability_shifts}}-shifts_loopability_seed{{seed}}_{{args}}.tsv",
+        f"{loopability_folder}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedname}}_{{loopability_shifts}}-shifts_loopability_seed{{seed,[0-9]+}}_{{args}}.tsv",
     params:
         outname=lambda wildcards, output: output[0].split("/")[-1],
         args=lambda wildcards: loopability_args[wildcards.args]
