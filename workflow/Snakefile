@@ -211,10 +211,10 @@ if config["loopability"]["do"]:
     loopability_shifts = config["loopability"]["shifts"]
     if loopability_shifts > 0:
         loopability_norms.append(f"{loopability_shifts}-shifts")
-    if config['loopability']['expected']:
-        loopability_norms.append('expected')
-    if len(loopability_norms)==0:
-        raise ValueError('Please use expected or shifts to normalize loopability')
+    if config["loopability"]["expected"]:
+        loopability_norms.append("expected")
+    if len(loopability_norms) == 0:
+        raise ValueError("Please use expected or shifts to normalize loopability")
 
 
 if config["insulation"]["do"]:
