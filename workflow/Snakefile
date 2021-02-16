@@ -115,7 +115,7 @@ bed_df.loc[:, "will_download"] = bed_df.file.apply(will_download)
 bed_df.loc[:, "local_path"] = bed_df.apply(
     lambda x: make_local_path(x.bedname, x.format) if x.will_download else x.file, axis=1
 )
-bed_df = bed_df.set_index("bedname")
+bed_df = bed_df.set_index("bedname").replace('-', np.nan)
 bed_df[['distal', 'by_distance', 'local', 'local_rescaled', 'loopability']] = ~bed_df[['distal', 'by_distance', 'local', 'local_rescaled', 'loopability']].isna()
 bedlinks_dict = dict(
     bed_df.query("will_download")["file"]

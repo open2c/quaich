@@ -138,13 +138,13 @@ call_dots:
             arguments: "-pt 0.05 -st 0.8"
     resolution: 10000
     samples:
-        - test
+        - test_cool
 
 compare_boundaries:
     do: False
     samples:
-        - test
-        - test
+        - test_cool
+        - test_cool
     fold_change_threshold: 5
 
 call_TADs: # By just combining strong boundaries
@@ -158,4 +158,4 @@ call_TADs: # By just combining strong boundaries
             - 1000000
     max_tad_length: 1500000
     samples:
-        - test
+        - test_cool
