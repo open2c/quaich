@@ -469,7 +469,7 @@ rule loopability:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
     shell:
-        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --basetype bed --by_window --seed {{wildcards.seed}} --n_proc {{threads}} --expected {{input.expected}} --outdir {{loopability_folder}} --outname {{params.outname}} {{params.args}})"
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --basetype bed --by_window --seed {{wildcards.seed}} --n_proc {{threads}} --expected {{input.expected}} --outdir {{loopability_folder}} --outname {{params.outname}} {{params.args}}"
 
 
 rule loopability_shifts:
