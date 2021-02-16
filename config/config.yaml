@@ -108,6 +108,7 @@ loopability:
     resolutions:
         - 1000
         - 10000
+    expected: True
     shifts: 1
     samples: test
     arguments:

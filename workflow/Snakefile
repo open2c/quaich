@@ -207,7 +207,15 @@ if config["pileups"]["bed_pairs"]["do"]:
 
 if config["loopability"]["do"]:
     loopability_args = config["loopability"]["arguments"]
+    loopability_norms = []
     loopability_shifts = config["loopability"]["shifts"]
+    if loopability_shifts > 0:
+        loopability_norms.append(f"{loopability_shifts}-shifts")
+    if config['loopability']['expected']:
+        loopability_norms.append('expected')
+    if len(loopability_norms)==0:
+        raise ValueError('Please use expected or shifts to normalize loopability')
+
 
 if config["insulation"]["do"]:
     insul_res_win = []
@@ -363,7 +371,7 @@ if config["loopability"]["do"]:
                 loopability_tables += expand(
                     f"{loopability_folder}/{sample}-{{resolution}}_over_{bedname}_{{norm}}_loopability_seed{{seed}}_{{args}}.tsv",
                     resolution=config["loopability"]["resolutions"],
-                    norm=["expected", f"{loopability_shifts}-shifts"],
+                    norm=loopability_norms,
                     seed=np.arange(config["loopability"]["n_random_samples"]),
                     args=list(loopability_args.keys()),
                 )
