@@ -110,7 +110,9 @@ loopability:
         - 10000
     shifts: 1
     samples: test
-    arguments: "--subset 1000 --maxdist 2000000"
+    arguments:
+        short_range: "--subset 1000 --maxdist 2000000"
+        long_range: "--subset 1000 --mindist 2000000"
 
 insulation:
     do: True
