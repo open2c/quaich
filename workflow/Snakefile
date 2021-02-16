@@ -78,7 +78,7 @@ def will_download(link):
     return False if parsed_path.scheme == "" else True
 
 
-samples_df = pd.read_csv(config["samples"], sep="\t", header=0)
+samples_df = pd.read_csv(config["samples"], sep="\t", header=0, comment='#')
 samples_df.loc[:, "will_download"] = samples_df.file.apply(will_download)
 samples_df.loc[:, "local_path"] = samples_df.apply(
     lambda x: f"{coolers_folder}/{x['sample']}.mcool" if x.will_download else x["file"],
@@ -110,7 +110,7 @@ bedpefiles_local = get_files(bedpes_folder, "bedpe")
 local_bed_names = {path.splitext(bedfile)[0]:f'{beds_folder}/{bedfile}' for bedfile in bedfiles_local}
 local_bedpe_names = {path.splitext(bedpefile)[0]:f'{bedpes_folder}/{bedpefile}' for bedpefile in bedpefiles_local}
 
-bed_df = pd.read_csv(config["annotations"], sep="\t", header=0)
+bed_df = pd.read_csv(config["annotations"], sep="\t", header=0, comment='#')
 bed_df.loc[:, "will_download"] = bed_df.file.apply(will_download)
 bed_df.loc[:, "local_path"] = bed_df.apply(
     lambda x: make_local_path(x.bedname, x.format) if x.will_download else x.file, axis=1
@@ -129,7 +129,7 @@ bedtype_dict = dict(bed_df['format'])
 # bedpe_pileups_mindist, bedpe_pileups_maxdist = config['bedpe_pileups_distance_limits']
 
 samples_annotations = ~pd.read_csv(config['samples_annotations_combinations'],
-sep='\t', header=0, index_col=0).isna()
+sep='\t', header=0, index_col=0, comment='#').isna()
 ### Data resolutions
 ignore_resolutions_more_than = config["ignore_resolutions_more_than"]
 resolutions = config["resolutions"]  ##### Assume same resolutions in all coolers
@@ -303,7 +303,9 @@ if config["pileups"]["do"]:
         if row.local_rescaled:
             modes += ['_local_rescaled']
         for sample in samples:
-            if bedname in samples_annotations.columns and not samples_annotations.loc[sample, bedname]:
+            if sample not in samples_annotations.index:
+                continue
+            if bedname in samples_annotations.columns  and not samples_annotations.loc[sample, bedname]:
                 continue
             beds_pileups += expand(
                 f"{pileups_folder}/{beds_folder_name}/{sample}-{{resolution}}_over_{bedname}_{{norm}}{{mode}}.np.txt",
@@ -331,6 +333,8 @@ if config["loopability"]["do"]:
     for bedname, row in bed_df.iterrows():
         if row.loopability:
             for sample in samples:
+                if sample not in samples_annotations.index:
+                    continue
                 if bedname in samples_annotations.columns and not samples_annotations.loc[sample, bedname]:
                     continue
                 loopability_tables += expand(
