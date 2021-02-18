@@ -211,10 +211,10 @@ if config["loopability"]["do"]:
     loopability_shifts = config["loopability"]["shifts"]
     if loopability_shifts > 0:
         loopability_norms.append(f"{loopability_shifts}-shifts")
-    if config["loopability"]["expected"]:
-        loopability_norms.append("expected")
-    if len(loopability_norms) == 0:
-        raise ValueError("Please use expected or shifts to normalize loopability")
+    if config['loopability']['expected']:
+        loopability_norms.append('expected')
+    if len(loopability_norms)==0:
+        raise ValueError('Please use expected or shifts to normalize loopability')
 
 
 if config["insulation"]["do"]:
@@ -369,10 +369,9 @@ if config["loopability"]["do"]:
                 ):
                     continue
                 loopability_tables += expand(
-                    f"{loopability_folder}/{sample}-{{resolution}}_over_{bedname}_{{norm}}_loopability_seed{{seed}}_{{args}}.tsv",
+                    f"{loopability_folder}/merged/{sample}-{{resolution}}_over_{bedname}_{{norm}}_loopability_{{args}}.tsv",
                     resolution=config["loopability"]["resolutions"],
                     norm=loopability_norms,
-                    seed=np.arange(config["loopability"]["n_random_samples"]),
                     args=list(loopability_args.keys()),
                 )
 saddles = (
@@ -488,6 +487,25 @@ rule make_pileups_distance:
         f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --basetype {{params.format}} --basetype {{params.format}} --n_proc {{threads}} --expected {{input.expected}} --mindist {{wildcards.mindist}} --maxdist {{wildcards.maxdist}} --outdir {{params.outdir}} --outname {{params.outname}}"
 
 
+rule average_loopability:
+    input:
+        lambda wildcards: [f"{loopability_folder}/{{sample}}-{{resolution}}_over_{{bedname}}_{{norm}}_loopability_seed{seed}_{{args}}.tsv"
+                                 for seed in np.arange(config['loopability']['n_random_samples'])]
+    output:
+        f"{loopability_folder}/merged/{{sample}}-{{resolution,[0-9]+}}_over_{{bedname}}_{{norm}}_loopability_{{args}}.tsv"
+    threads: 1
+    params:
+        CV_quantile_filter=lambda wildcards: config['loopability'].get('CV_quantile_filter', 0.995)
+    resources:
+        mem_mb=1024,
+        runtime=5
+    run:
+        dfs = [pd.read_csv(f, sep='\t').dropna() for f in input]
+        df = pd.concat([df[(df['CV3']<df['CV3'].quantile(params.CV_quantile_filter)) & (df['CV5']<df['CV5'].quantile(params.CV_quantile_filter))] for df in dfs])
+        merged = df.groupby(['chr', 'start', 'end']).apply(lambda x: pd.Series(index=['Enrichment1', 'Enrichment3'],
+                                                           data=np.average(x[['Enrichment1', 'Enrichment3']], weights=x['N'], axis=0))).reset_index()
+        merged.to_csv(output[0], sep='\t', index=False)
+
 rule loopability:
     input:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
@@ -501,10 +519,9 @@ rule loopability:
     threads: 8
     resources:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
-        runtime=24 * 60,
+        runtime=48 * 60,
     shell:
         f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --basetype bed --by_window --seed {{wildcards.seed}} --n_proc {{threads}} --expected {{input.expected}} --outdir {{loopability_folder}} --outname {{params.outname}} {{params.args}}"
-
 
 rule loopability_shifts:
     input:
@@ -518,7 +535,7 @@ rule loopability_shifts:
     threads: 8
     resources:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
-        runtime=24 * 60,
+        runtime=48 * 60,
     shell:
         f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --basetype bed --by_window --seed {{wildcards.seed}} --n_proc {{threads}} --nshifts {{wildcards.loopability_shifts}} --outdir {{loopability_folder}} --outname {{params.outname}} {{params.args}}"
 
