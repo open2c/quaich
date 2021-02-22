@@ -175,6 +175,13 @@ if config["saddle"]["do"]:
 
 if config["pileups"]["do"] or config["pileups"]["bed_pairs"]["do"]:
     shifts = config["pileups"]["shifts"]
+    pileup_norms = []
+    if shifts > 0:
+        pileup_norms.append(f"{shifts}-shifts")
+    if config["pileups"]["expected"]:
+        pileup_norms.append("expected")
+    if len(pileup_norms) == 0:
+        raise ValueError("Please use expected or shifts to normalize pileups")
     pileup_resolution_limits = config["pileups"]["resolution_limits"]
     pileups_mindist, pileups_maxdist = config["pileups"]["distance_limits"]
     pileup_resolutions = list(
@@ -211,10 +218,10 @@ if config["loopability"]["do"]:
     loopability_shifts = config["loopability"]["shifts"]
     if loopability_shifts > 0:
         loopability_norms.append(f"{loopability_shifts}-shifts")
-    if config['loopability']['expected']:
-        loopability_norms.append('expected')
-    if len(loopability_norms)==0:
-        raise ValueError('Please use expected or shifts to normalize loopability')
+    if config["loopability"]["expected"]:
+        loopability_norms.append("expected")
+    if len(loopability_norms) == 0:
+        raise ValueError("Please use expected or shifts to normalize loopability")
 
 
 if config["insulation"]["do"]:
@@ -250,7 +257,7 @@ diff_boundaries_pileups = (
         sample=samples,
         resolution=pileup_resolutions,
         insul_res_win=insul_res_win,
-        norm=["expected", f"{shifts}-shifts"],
+        norm=pileup_norms,
     )
     if config["compare_boundaries"]["do"] and config["pileups"]["do"]
     else []
@@ -273,7 +280,7 @@ tads_pileups = (
         resolution=pileup_resolutions,
         sampleTADs=config["call_TADs"]["samples"],
         tad_res_win=tad_res_win,
-        norm=["expected", f"{shifts}-shifts"],
+        norm=pileup_norms,
     )
     if config["call_TADs"]["do"] and config["pileups"]["do"]
     else []
@@ -297,7 +304,7 @@ if dot_methods:
             method=dot_methods,
             sampleLoops=config["call_dots"]["samples"],
             resolutionLoops=config["call_dots"]["resolution"],
-            norm=["expected", f"{shifts}-shifts"],
+            norm=pileup_norms,
             mode=[""] + separations,
         )
         if config["pileups"]["do"]
@@ -339,7 +346,7 @@ if config["pileups"]["do"]:
             beds_pileups += expand(
                 f"{pileups_folder}/{beds_folder_name}/{sample}-{{resolution}}_over_{bedname}_{{norm}}{{mode}}.np.txt",
                 resolution=pileup_resolutions,
-                norm=["expected", f"{shifts}-shifts"],
+                norm=pileup_norms,
                 mode=modes,
             )
 
@@ -350,7 +357,7 @@ paired_beds_pileups = (
         resolution=pileup_resolutions,
         pairname=bedpairs.keys(),
         separation=separations,
-        norm=["expected", f"{shifts}-shifts"],
+        norm=pileup_norms,
         mode=[""] + separations,
     )
     if config["pileups"]["do"] and config["pileups"]["bed_pairs"]["do"]
@@ -489,22 +496,45 @@ rule make_pileups_distance:
 
 rule average_loopability:
     input:
-        lambda wildcards: [f"{loopability_folder}/{{sample}}-{{resolution}}_over_{{bedname}}_{{norm}}_loopability_seed{seed}_{{args}}.tsv"
-                                 for seed in np.arange(config['loopability']['n_random_samples'])]
+        lambda wildcards: [
+            f"{loopability_folder}/{{sample}}-{{resolution}}_over_{{bedname}}_{{norm}}_loopability_seed{seed}_{{args}}.tsv"
+            for seed in np.arange(config["loopability"]["n_random_samples"])
+        ],
     output:
-        f"{loopability_folder}/merged/{{sample}}-{{resolution,[0-9]+}}_over_{{bedname}}_{{norm}}_loopability_{{args}}.tsv"
+        f"{loopability_folder}/merged/{{sample}}-{{resolution,[0-9]+}}_over_{{bedname}}_{{norm}}_loopability_{{args}}.tsv",
     threads: 1
     params:
-        CV_quantile_filter=lambda wildcards: config['loopability'].get('CV_quantile_filter', 0.995)
+        CV_quantile_filter=lambda wildcards: config["loopability"].get(
+            "CV_quantile_filter", 0.995
+        ),
     resources:
         mem_mb=1024,
-        runtime=5
+        runtime=5,
     run:
-        dfs = [pd.read_csv(f, sep='\t').dropna() for f in input]
-        df = pd.concat([df[(df['CV3']<df['CV3'].quantile(params.CV_quantile_filter)) & (df['CV5']<df['CV5'].quantile(params.CV_quantile_filter))] for df in dfs])
-        merged = df.groupby(['chr', 'start', 'end']).apply(lambda x: pd.Series(index=['Enrichment1', 'Enrichment3'],
-                                                           data=np.average(x[['Enrichment1', 'Enrichment3']], weights=x['N'], axis=0))).reset_index()
-        merged.to_csv(output[0], sep='\t', index=False)
+        dfs = [pd.read_csv(f, sep="\t").dropna() for f in input]
+        df = pd.concat(
+            [
+                df[
+                    (df["CV3"] < df["CV3"].quantile(params.CV_quantile_filter))
+                    & (df["CV5"] < df["CV5"].quantile(params.CV_quantile_filter))
+                ]
+                for df in dfs
+            ]
+        )
+        merged = (
+            df.groupby(["chr", "start", "end"])
+            .apply(
+                lambda x: pd.Series(
+                    index=["Enrichment1", "Enrichment3"],
+                    data=np.average(
+                        x[["Enrichment1", "Enrichment3"]], weights=x["N"], axis=0
+                    ),
+                )
+            )
+            .reset_index()
+        )
+        merged.to_csv(output[0], sep="\t", index=False)
+
 
 rule loopability:
     input:
@@ -522,6 +552,7 @@ rule loopability:
         runtime=48 * 60,
     shell:
         f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --basetype bed --by_window --seed {{wildcards.seed}} --n_proc {{threads}} --expected {{input.expected}} --outdir {{loopability_folder}} --outname {{params.outname}} {{params.args}}"
+
 
 rule loopability_shifts:
     input:
