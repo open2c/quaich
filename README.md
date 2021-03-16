@@ -2,6 +2,9 @@
 
 [![Snakemake](https://img.shields.io/badge/snakemake-≥5.7.0-brightgreen.svg)](https://snakemake.bitbucket.io)
 [![Build Status](https://travis-ci.org/snakemake-workflows/quaich.svg?branch=master)](https://travis-ci.org/snakemake-workflows/quaich)
+[![DOI](https://zenodo.org/badge/272558705.svg)](https://zenodo.org/badge/latestdoi/272558705)
+
+
 
 This is a `snakemake` based workflow for postprocessing of Hi-C data stored in .mcool files, that can be generated using `distiller` (https://github.com/mirnylab/distiller-nf). It uses `cooltools` for calculation of compartments and insulation. Compartments are used to create saddles, and insulation is used to annotate domains (TADs), demarcated by strong insulation boundaries. It calls Hi-C peaks (peaks, dots) using `chromosight` and `mustache`. Uses `coolpuppy` to generate lots of pileups.
 
