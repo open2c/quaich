@@ -545,7 +545,7 @@ rule make_pileups_shifts:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
         bedfile=lambda wildcards: bedfiles_dict[wildcards.bedfile],
     output:
-        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_{shifts}-shifts.np.txt",
+        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_{{shifts}}-shifts.np.txt",
     params:
         outname=lambda wildcards, output: output[0].split("/")[-1],
         outdir=lambda wildcards, output: f"{pileups_folder}/{wildcards.folder}",
@@ -555,7 +555,7 @@ rule make_pileups_shifts:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
     shell:
-        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --basetype {{params.format}} --n_proc {{threads}} --nshifts {shifts} --outdir {{params.outdir}} --outname {{params.outname}}"
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --basetype {{params.format}} --n_proc {{threads}} --nshifts {{wildcards.shifts}} --outdir {{params.outdir}} --outname {{params.outname}}"
 
 
 rule make_pileups_shifts_local:
@@ -563,7 +563,7 @@ rule make_pileups_shifts_local:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
         bedfile=lambda wildcards: bedfiles_dict[wildcards.bedfile],
     output:
-        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_{shifts}-shifts_local.np.txt",
+        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_{{shifts}}-shifts_local.np.txt",
     params:
         outname=lambda wildcards, output: output[0].split("/")[-1],
         outdir=lambda wildcards, output: f"{pileups_folder}/{wildcards.folder}",
@@ -572,7 +572,7 @@ rule make_pileups_shifts_local:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
     shell:
-        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --basetype bed --local --n_proc {{threads}} --nshifts {shifts} --outdir {{params.outdir}} --outname {{params.outname}}"
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --basetype bed --local --n_proc {{threads}} --nshifts {{wildcards.shifts}} --outdir {{params.outdir}} --outname {{params.outname}}"
 
 
 rule make_pileups_shifts_local_rescaled:
@@ -580,7 +580,7 @@ rule make_pileups_shifts_local_rescaled:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
         bedfile=lambda wildcards: bedfiles_dict[wildcards.bedfile],
     output:
-        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_{shifts}-shifts_local_rescaled.np.txt",
+        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_{{shifts}}-shifts_local_rescaled.np.txt",
     params:
         outname=lambda wildcards, output: output[0].split("/")[-1],
         outdir=lambda wildcards, output: f"{pileups_folder}/{wildcards.folder}",
@@ -589,7 +589,7 @@ rule make_pileups_shifts_local_rescaled:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
     shell:
-        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --basetype bed --local --rescale --rescale_pad {config['pileups']['rescale_pad']} --n_proc {{threads}} --nshifts {shifts} --outdir {{params.outdir}} --outname {{params.outname}}"
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --basetype bed --local --rescale --rescale_pad {config['pileups']['rescale_pad']} --n_proc {{threads}} --nshifts {{wildcards.shifts}} --outdir {{params.outdir}} --outname {{params.outname}}"
 
 
 rule make_pileups_shifts_distance:
@@ -597,7 +597,7 @@ rule make_pileups_shifts_distance:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
         bedfile=lambda wildcards: bedfiles_dict[wildcards.bedfile],
     output:
-        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_{shifts}-shifts_dist_{{mindist,[0-9]+}}-{{maxdist,[0-9]+}}.np.txt",
+        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_{{shifts}}-shifts_dist_{{mindist,[0-9]+}}-{{maxdist,[0-9]+}}.np.txt",
     params:
         outname=lambda wildcards, output: output[0].split("/")[-1],
         outdir=lambda wildcards, output: f"{pileups_folder}/{wildcards.folder}",
@@ -607,7 +607,7 @@ rule make_pileups_shifts_distance:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
     shell:
-        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --basetype {{params.format}} --n_proc {{threads}} --nshifts {shifts} --mindist {{wildcards.mindist}} --maxdist {{wildcards.maxdist}} --outdir {{params.outdir}} --outname {{params.outname}}"
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --basetype {{params.format}} --n_proc {{threads}} --nshifts {{wildcards.shifts}} --mindist {{wildcards.mindist}} --maxdist {{wildcards.maxdist}} --outdir {{params.outdir}} --outname {{params.outname}}"
 
 
 rule make_pileups_bed2:
@@ -668,7 +668,7 @@ rule make_pileups_bed2_shifts:
             bedpairs_folder, bedpairs[wildcards.pairname][1]
         ),
     output:
-        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over-paired_{{pairname}}_{shifts}-shifts.np.txt",
+        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over-paired_{{pairname}}_{{shifts}}-shifts.np.txt",
     params:
         outname=lambda wildcards, output: output[0].split("/")[-1],
         outdir=lambda wildcards, output: f"{pileups_folder}/{wildcards.folder}",
@@ -678,7 +678,7 @@ rule make_pileups_bed2_shifts:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
     shell:
-        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bed1}} --basetype bed --bed2 {{input.bed2}} --n_proc {{threads}} --nshifts {shifts} --outdir {{params.outdir}} --outname {{params.outname}} {{params.args}}"
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bed1}} --basetype bed --bed2 {{input.bed2}} --n_proc {{threads}} --nshifts {{wildcards.shifts}} --outdir {{params.outdir}} --outname {{params.outname}} {{params.args}}"
 
 
 rule make_pileups_bed2_shifts_distance:
@@ -691,7 +691,7 @@ rule make_pileups_bed2_shifts_distance:
             bedpairs_folder, bedpairs[wildcards.pairname][1]
         ),
     output:
-        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over-paired_{{pairname}}_{shifts}-shifts_dist_{{mindist,[0-9]+}}-{{maxdist,[0-9]+}}.np.txt",
+        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over-paired_{{pairname}}_{{shifts}}-shifts_dist_{{mindist,[0-9]+}}-{{maxdist,[0-9]+}}.np.txt",
     params:
         outname=lambda wildcards, output: output[0].split("/")[-1],
         outdir=lambda wildcards, output: f"{pileups_folder}/{wildcards.folder}",
@@ -701,7 +701,7 @@ rule make_pileups_bed2_shifts_distance:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
     shell:
-        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bed1}} --basetype bed --bed2 {{input.bed2}} --n_proc {{threads}} --nshifts {shifts} --mindist {{wildcards.mindist}} --maxdist {{wildcards.maxdist}} --outdir {{params.outdir}} --outname {{params.outname}} {{params.args}}"
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bed1}} --basetype bed --bed2 {{input.bed2}} --n_proc {{threads}} --nshifts {{wildcards.shifts}} --mindist {{wildcards.mindist}} --maxdist {{wildcards.maxdist}} --outdir {{params.outdir}} --outname {{params.outname}} {{params.args}}"
 
 
 rule call_loops_chromosight:
