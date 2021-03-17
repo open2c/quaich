@@ -234,6 +234,12 @@ if config["call_TADs"]["do"]:
 # bedpe_mindists = [int(bedpe_pileups_mindist*2**i) for i in np.arange(0, np.log2(bedpe_pileups_maxdist/bedpe_pileups_mindist))]
 # bedpe_separations = [f'{mindist}-{mindist*2}' for mindist in bedpe_mindists]
 
+expecteds = (
+    expand(f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
+    sample=samples,
+    resolution=resolutions)
+)
+
 diff_boundaries = (
     expand(
         f"{boundary_folder}/Insulation_{config['compare_boundaries']['samples'][0]}_not_"
@@ -401,6 +407,7 @@ def split_dist(dist_wildcard, mindist_arg="--mindist", maxdist_arg="--maxdist"):
 ###### Define rules #######
 rule all:
     input:
+        lambda wildcards: expecteds,
         lambda wildcards: diff_boundaries,
         lambda wildcards: diff_boundaries_pileups,
         lambda wildcards: tads,
@@ -589,7 +596,7 @@ rule make_pileups_shifts_local_rescaled:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
     shell:
-        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --basetype bed --local --rescale --rescale_pad {config['pileups']['rescale_pad']} --n_proc {{threads}} --nshifts {{wildcards.shifts}} --outdir {{params.outdir}} --outname {{params.outname}}"
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --basetype bed --local --rescale --rescale_pad {config['pileups']['rescale_pad']} --n_proc {{threads}} --nshifts {{shifts}} --outdir {{params.outdir}} --outname {{params.outname}}"
 
 
 rule make_pileups_shifts_distance:
@@ -607,7 +614,7 @@ rule make_pileups_shifts_distance:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
     shell:
-        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --basetype {{params.format}} --n_proc {{threads}} --nshifts {{wildcards.shifts}} --mindist {{wildcards.mindist}} --maxdist {{wildcards.maxdist}} --outdir {{params.outdir}} --outname {{params.outname}}"
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --basetype {{params.format}} --n_proc {{threads}} --nshifts {{shifts}} --mindist {{wildcards.mindist}} --maxdist {{wildcards.maxdist}} --outdir {{params.outdir}} --outname {{params.outname}}"
 
 
 rule make_pileups_bed2:
@@ -678,7 +685,7 @@ rule make_pileups_bed2_shifts:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
     shell:
-        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bed1}} --basetype bed --bed2 {{input.bed2}} --n_proc {{threads}} --nshifts {{wildcards.shifts}} --outdir {{params.outdir}} --outname {{params.outname}} {{params.args}}"
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bed1}} --basetype bed --bed2 {{input.bed2}} --n_proc {{threads}} --nshifts {{shifts}} --outdir {{params.outdir}} --outname {{params.outname}} {{params.args}}"
 
 
 rule make_pileups_bed2_shifts_distance:
@@ -701,7 +708,7 @@ rule make_pileups_bed2_shifts_distance:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
     shell:
-        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bed1}} --basetype bed --bed2 {{input.bed2}} --n_proc {{threads}} --nshifts {{wildcards.shifts}} --mindist {{wildcards.mindist}} --maxdist {{wildcards.maxdist}} --outdir {{params.outdir}} --outname {{params.outname}} {{params.args}}"
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bed1}} --basetype bed --bed2 {{input.bed2}} --n_proc {{threads}} --nshifts {{shifts}} --mindist {{wildcards.mindist}} --maxdist {{wildcards.maxdist}} --outdir {{params.outdir}} --outname {{params.outname}} {{params.args}}"
 
 
 rule call_loops_chromosight:
