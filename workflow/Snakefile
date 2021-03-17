@@ -904,7 +904,7 @@ rule make_saddles:
         mem_mb=8 * 1024,
         runtime=60,
     shell:
-        "cooltools compute-saddle -o {params.prefix} {params.args} {params.distargs} {input.cooler}::resolutions/{wildcards.resolution} {input.eigenvector} {input.expected}"
+        "cooltools compute-saddle -o {params.prefix} {params.args} {params.distargs} --n-bins {wildcards.bins} {input.cooler}::resolutions/{wildcards.resolution} {input.eigenvector} {input.expected}"
 
 
 rule make_expected:
