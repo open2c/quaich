@@ -91,18 +91,10 @@ pileups:
         # - 12500
         # - 102400000
     shifts: 1
-    expected: False
+    expected: True
+    ooe: True #Only applies when expected is True
     rescale_pad: 1
 
-    bed_pairs:
-        do: False # Can use even with pileups['do'] == False
-        path: bed_pairs_folder_path
-        input:
-            convergent_CTCF:
-                arguments: ""
-                files:
-                    -  file1.bed
-                    -  file2.bed
 loopability:
     do: True
     n_random_samples: 1
