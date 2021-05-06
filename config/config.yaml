@@ -102,9 +102,7 @@ loopability:
     resolutions:
         - 1000
         - 10000
-    expected: True
     shifts: 1
-    samples: test
     arguments:
         short_range: "--subset 1000 --maxdist 2000000"
         long_range: "--subset 1000 --mindist 2000000"

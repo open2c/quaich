@@ -220,14 +220,6 @@ if config["pileups"]["do"] or config["pileups"]["bed_pairs"]["do"]:
 
 if config["loopability"]["do"]:
     loopability_args = config["loopability"]["arguments"]
-    loopability_norms = []
-    loopability_shifts = config["loopability"]["shifts"]
-    if loopability_shifts > 0:
-        loopability_norms.append(f"{loopability_shifts}-shifts")
-    if config["loopability"]["expected"]:
-        loopability_norms.append("expected")
-    if len(loopability_norms) == 0:
-        raise ValueError("Please use expected or shifts to normalize loopability")
 
 if config["insulation"]["do"]:
     insul_res_win = []
@@ -246,10 +238,10 @@ if config["call_TADs"]["do"]:
 # bedpe_mindists = [int(bedpe_pileups_mindist*2**i) for i in np.arange(0, np.log2(bedpe_pileups_maxdist/bedpe_pileups_mindist))]
 # bedpe_separations = [f'{mindist}-{mindist*2}' for mindist in bedpe_mindists]
 
-expecteds = (
-    expand(f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
+expecteds = expand(
+    f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
     sample=samples,
-    resolution=resolutions)
+    resolution=resolutions,
 )
 
 diff_boundaries = (
@@ -453,7 +445,7 @@ rule make_pileups_shifts:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
         bedfile=lambda wildcards: bedfiles_dict[wildcards.bedfile],
     output:
-        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_{shifts}-shifts{{mode,.*}}.clpy",
+        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_{{shifts}}-shifts{{mode,.*}}.clpy",
     params:
         format=lambda wildcards: bedtype_dict[wildcards.bedfile],
         mode=lambda wildcards: pileup_params[wildcards.mode],
