@@ -246,6 +246,12 @@ if config["call_TADs"]["do"]:
 # bedpe_mindists = [int(bedpe_pileups_mindist*2**i) for i in np.arange(0, np.log2(bedpe_pileups_maxdist/bedpe_pileups_mindist))]
 # bedpe_separations = [f'{mindist}-{mindist*2}' for mindist in bedpe_mindists]
 
+expecteds = (
+    expand(f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
+    sample=samples,
+    resolution=resolutions)
+)
+
 diff_boundaries = (
     expand(
         f"{boundary_folder}/Insulation_{config['compare_boundaries']['samples'][0]}_not_"
@@ -412,6 +418,7 @@ def split_dist(dist_wildcard, mindist_arg="--mindist", maxdist_arg="--maxdist"):
 ###### Define rules #######
 rule all:
     input:
+        lambda wildcards: expecteds,
         lambda wildcards: diff_boundaries,
         lambda wildcards: diff_boundaries_pileups,
         lambda wildcards: tads,
@@ -735,7 +742,7 @@ rule make_saddles:
         mem_mb=8 * 1024,
         runtime=60,
     shell:
-        "cooltools compute-saddle -o {params.prefix} {params.args} {params.distargs} {input.cooler}::resolutions/{wildcards.resolution} {input.eigenvector} {input.expected}"
+        "cooltools compute-saddle -o {params.prefix} {params.args} {params.distargs} --n-bins {wildcards.bins} {input.cooler}::resolutions/{wildcards.resolution} {input.eigenvector} {input.expected}"
 
 
 rule make_expected:
