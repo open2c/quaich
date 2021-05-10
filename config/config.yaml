@@ -123,13 +123,19 @@ insulation:
 
 call_dots:
     methods:
+        cooltools:
+            do: True
+            max_dist: 10000000
+            fdr: 0.02
+            arguments: ""
         chromosight:
             do: True
         mustache:
             do: True
             max_dist: 10000000
             arguments: "-pt 0.05 -st 0.8"
-    resolution: 10000
+    resolutions:
+        - 10000
     samples:
         - test_cool
 

@@ -296,7 +296,7 @@ if dot_methods:
         f"{loop_folder}/Loops_{{method}}_{{sampleLoops}}_{{resolutionLoops}}.bedpe",
         method=dot_methods,
         sampleLoops=config["call_dots"]["samples"],
-        resolutionLoops=config["call_dots"]["resolution"],
+        resolutionLoops=config["call_dots"]["resolutions"],
     )
 
     loops_pileups = (
@@ -306,7 +306,7 @@ if dot_methods:
             resolution=pileup_resolutions,
             method=dot_methods,
             sampleLoops=config["call_dots"]["samples"],
-            resolutionLoops=config["call_dots"]["resolution"],
+            resolutionLoops=config["call_dots"]["resolutions"],
             norm=pileup_norms,
             mode=["", "_by_distance"],
         )
@@ -532,6 +532,25 @@ rule make_pileups_shifts:
 #         runtime=48 * 60,
 #     shell:
 #         f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --basetype bed --by_window --seed {{wildcards.seed}} --n_proc {{threads}} --nshifts {{wildcards.loopability_shifts}} --outdir {{loopability_folder}} --outname {{params.outname}} {{params.args}} --excl_chrs {excl_chroms}"
+rule call_loops_cooltools:
+    input:
+        cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
+        expected=f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
+    output:
+        f"{loop_folder}/Loops_cooltools_{{sample}}_{{resolution,[0-9]+}}.bedpe",
+    threads: 4
+    params:
+        args=config["call_dots"]["methods"]["cooltools"]["arguments"],
+        dist=config["call_dots"]["methods"]["cooltools"]["max_dist"],
+        fdr=config["call_dots"]["methods"]["cooltools"]["fdr"],
+    resources:
+        mem_mb=lambda wildcards, threads: threads * 16 * 1024,
+        runtime=24 * 60,
+    shell:
+        f"cooltools call-dots -p {{threads}} {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.expected}} "
+        f"--fdr {{params.fdr}} --max-loci-separation {{params.dist}} {{params.args}} -o {{output}} && "
+        f"mv {{output}} {{output}}.preproc &&"
+        f"tail -n +2 {{output}}.postproc | cut -f1-6 > {{output}}"
 
 
 rule call_loops_chromosight:
