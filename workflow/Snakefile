@@ -345,7 +345,7 @@ if config["pileups"]["do"]:
         if row.local_rescaled:
             modes += ["_local_rescaled"]
         if row.by_window:
-            if loopability_args:
+            if config["loopability"]["do"] and loopability_args:
                 for args_name, args in loopability_args.items():
                     modes += ["_loopability_" + args_name]
             else:
@@ -375,7 +375,7 @@ pileup_params = {
     "_by_strand_distal": "--by_strand",
     "": "",
 }
-if loopability_args:
+if config["loopability"]["do"] and loopability_args:
     for args_name, args in loopability_args.items():
         pileup_params["_loopability_" + args_name] = (
             args + " --basetype bed --by_window"
@@ -537,7 +537,7 @@ rule call_loops_cooltools:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
         expected=f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
     output:
-        f"{loop_folder}/Loops_cooltools_{{sample}}_{{resolution,[0-9]+}}.bedpe",
+        f"{loop_folder}/Loops_cooltools_{{sample}}_{{resolution,[0-9]+}}.bedpe"
     threads: 4
     params:
         args=config["call_dots"]["methods"]["cooltools"]["arguments"],
