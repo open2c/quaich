@@ -2,6 +2,7 @@ genome: hg38
 path_genome_folder: /exports/igmm/eddie/wendy-lab/ilia/genomes/hg38
 path_genome_fasta: /exports/igmm/eddie/wendy-lab/ilia/genomes/hg38/hg38.fa
 chromsizes: /exports/igmm/eddie/wendy-lab/ilia/genomes/hg38/chrfile.txt
+regions: /exports/igmm/eddie/wendy-lab/ilia/genomes/hg38/chrom_arms.txt
 ignore_chroms:
     - chr1
     - chr3
@@ -71,9 +72,6 @@ eigenvector:
 saddle:
     do: True
     bins:
-        - 10
-        - 25
-        - 50
         - 100
     distance_limits:
         - 1600000

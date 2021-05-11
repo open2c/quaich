@@ -256,7 +256,7 @@ diff_boundaries = (
 diff_boundaries_pileups = (
     expand(
         f"{pileups_folder}/{boundary_folder_name}/{{sample}}-{{resolution}}_over_Insulation_{config['compare_boundaries']['samples'][0]}_not_"
-        f"{config['compare_boundaries']['samples'][1]}_{{insul_res_win}}.bed_{{norm}}_local.clpy",
+        f"{config['compare_boundaries']['samples'][1]}_{{insul_res_win}}_{{norm}}_local.clpy",
         sample=samples,
         resolution=pileup_resolutions,
         insul_res_win=insul_res_win,
@@ -426,6 +426,7 @@ rule make_pileups:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
         expected=f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
         bedfile=lambda wildcards: bedfiles_dict[wildcards.bedfile],
+        regions=lambda wildcards: config["regions"],
     output:
         f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_expected{{mode,.*}}.clpy",
     params:
@@ -437,13 +438,14 @@ rule make_pileups:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
     shell:
-        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --basetype {{params.format}} {{params.mode}} --n_proc {{threads}} --expected {{input.expected}} --outname {{output[0]}} --excl_chrs {excl_chroms}"
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --regions {{input.regions}} --basetype {{params.format}} {{params.mode}} --n_proc {{threads}} --expected {{input.expected}} --outname {{output[0]}} --excl_chrs {excl_chroms}"
 
 
 rule make_pileups_shifts:
     input:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
         bedfile=lambda wildcards: bedfiles_dict[wildcards.bedfile],
+        regions=lambda wildcards: config["regions"],
     output:
         f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_{{shifts}}-shifts{{mode,.*}}.clpy",
     params:
@@ -454,7 +456,7 @@ rule make_pileups_shifts:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
     shell:
-        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --basetype {{params.format}} --nshifts {{shifts}} {{params.mode}} --n_proc {{threads}} --outname {{output[0]}} --excl_chrs {excl_chroms}"
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --regions {{input.regions}} --basetype {{params.format}} --nshifts {{shifts}} {{params.mode}} --n_proc {{threads}} --outname {{output[0]}} --excl_chrs {excl_chroms}"
 
 
 # rule average_loopability:
@@ -536,8 +538,9 @@ rule call_loops_cooltools:
     input:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
         expected=f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
+        regions=lambda wildcards: config["regions"],
     output:
-        f"{loop_folder}/Loops_cooltools_{{sample}}_{{resolution,[0-9]+}}.bedpe"
+        f"{loop_folder}/Loops_cooltools_{{sample}}_{{resolution,[0-9]+}}.bedpe",
     threads: 4
     params:
         args=config["call_dots"]["methods"]["cooltools"]["arguments"],
@@ -548,7 +551,7 @@ rule call_loops_cooltools:
         runtime=24 * 60,
     shell:
         f"cooltools call-dots -p {{threads}} {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.expected}} "
-        f"--fdr {{params.fdr}} --max-loci-separation {{params.dist}} {{params.args}} -o {{output}} && "
+        f"--fdr {{params.fdr}} --max-loci-separation {{params.dist}} --regions {{input.regions}} {{params.args}} -o {{output}} && "
         f"mv {{output}} {{output}}.preproc &&"
         f"tail -n +2 {{output}}.postproc | cut -f1-6 > {{output}}"
 
@@ -739,6 +742,7 @@ rule make_saddles:
         ),
         expected=f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
+        regions=lambda wildcards: config["regions"],
     output:
         saddle=f"{saddles_folder}/{{sample}}_{{resolution,[0-9]+}}_{{bins,[0-9]+}}{{dist,.*}}.saddledump.npz",
         digitized=f"{saddles_folder}/{{sample}}_{{resolution,[0-9]+}}_{{bins,[0-9]+}}{{dist,.*}}.digitized.tsv",
@@ -753,12 +757,13 @@ rule make_saddles:
         mem_mb=8 * 1024,
         runtime=60,
     shell:
-        "cooltools compute-saddle -o {params.prefix} {params.args} {params.distargs} --n-bins {wildcards.bins} {input.cooler}::resolutions/{wildcards.resolution} {input.eigenvector} {input.expected}"
+        "cooltools compute-saddle -o {params.prefix} {params.args} {params.distargs} --regions {input.regions} --n-bins {wildcards.bins} {input.cooler}::resolutions/{wildcards.resolution} {input.eigenvector} {input.expected}"
 
 
 rule make_expected:
     input:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
+        regions=lambda wildcards: config["regions"],
     output:
         f"{expected_folder}/{{sample}}_{{resolution,[0-9]+}}.expected.tsv",
     threads: 4
@@ -766,7 +771,7 @@ rule make_expected:
         mem_mb=lambda wildcards, threads: threads * 8 * 1024,
         runtime=60,
     shell:
-        "cooltools compute-expected -p {threads} {input.cooler}::resolutions/{wildcards.resolution} --ignore-diags 0 -o {output}"
+        "cooltools compute-expected -p {threads} {input.cooler}::resolutions/{wildcards.resolution} --regions {input.regions} --ignore-diags 0 -o {output}"
 
 
 rule make_eigenvectors:
@@ -775,6 +780,7 @@ rule make_eigenvectors:
             f'{config["path_genome_folder"]}/gc/{genome}_{{resolution}}_gc.bedgraph'
         ),
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
+        regions=lambda wildcards: config["regions"],
     output:
         f"{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.vecs.tsv",
         f"{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.lam.txt",
@@ -786,7 +792,7 @@ rule make_eigenvectors:
         mem_mb=8 * 1024,
         runtime=60,
     shell:
-        "cooltools call-compartments --reference-track {input.reftrack} --bigwig {input.cooler}::resolutions/{wildcards.resolution} -o {params.prefix}"
+        "cooltools call-compartments --reference-track {input.reftrack} --regions {input.regions} --bigwig {input.cooler}::resolutions/{wildcards.resolution} -o {params.prefix}"
 
 
 rule make_gc:
