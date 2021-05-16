@@ -6,7 +6,61 @@
 
 
 
-This is a `snakemake` based workflow for postprocessing of Hi-C data stored in .mcool files, that can be generated using `distiller` (https://github.com/mirnylab/distiller-nf). It uses `cooltools` for calculation of compartments and insulation. Compartments are used to create saddles, and insulation is used to annotate domains (TADs), demarcated by strong insulation boundaries. It calls Hi-C peaks (peaks, dots) using `chromosight` and `mustache`. Uses `coolpuppy` to generate lots of pileups.
+`Quaich` is a [`snakemake`](https://snakemake.readthedocs.io/en/stable/) based workflow for reproducible and flexible analysis of Hi-C data. Quaich uses multi-resolution [`cooler`](https://github.com/open2c/cooler) (.mcool) files as its input. These files can be generated efficiently by the [`distiller`](https://github.com/open2c/distiller-nf) data processing pipeline. `Quaich` takes advantage of the `open2c` ecosystem for analysis of C data, primarily making use of  command line tools from [`cooltools`](https://github.com/open2c/cooltools). `Quaich` also makes use of [chromosight](https://github.com/koszullab/chromosight) and [mustache](https://github.com/ay-lab/mustache) to call Hi-C peaks (peaks, dots) as well as [coolpuppy](https://github.com/open2c/coolpuppy) to generate lots of pileups.
+
+[Snakemake](https://snakemake.readthedocs.io/en/stable/) is a workflow manager for reproducible and scalable data analyses, based around the concept of rules. Rules used in `Quaich` are defined in the [Snakefile](https://github.com/open2c/quaich/blob/master/workflow/Snakefile). `Quaich` then uses a [yaml config file](https://github.com/open2c/quaich/blob/master/config/config.yaml) to specify which rules to run, and which parameters to use for those rules.
+
+Each rule in the `Quaich` Snakefile specifies inputs, outputs, resources, and threads. The best values for resources and threads depend on whether `quaich` is run locally or on a cluster. Outputs of one rule are often used as inputs to another. For example, the rule `make_expected` calls `cooltools compute-expected` on a mcool for a set of regions at specified resolutions to output tsv. This output is then used in make_saddles, make_pileups, and call_loops_cooltools.
+```python
+rule make_expected:
+    input:
+        cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
+        regions=lambda wildcards: config["regions"],
+    output:
+        f"{expected_folder}/{{sample}}_{{resolution,[0-9]+}}.expected.tsv",
+    threads: 4 
+    resources:
+        mem_mb=lambda wildcards, threads: threads * 8 * 1024,
+        runtime=60,
+    shell:
+        "cooltools compute-expected -p {threads} {input.cooler}::resolutions/{wildcards.resolution} --regions {input.regions} --ignore-diags 0 -o {output}"
+```
+
+`Quaich` groups similar rules together in config.yaml, which is read as a python dictionary by the Snakefile. Parameters for individual rules are passed as indented (key, value) pairs. For example, call_dots configures three rules, call_loops_cooltools,  call_loops_chromosight, and call_loops_mustache. The parameters for each specific rule is underneath, the shared parameters are below (e.g. resolutions, and samples).  call_loops_cooltools has parameters do, max_dist, fdr. `Do` always specifies if the workflow should attempt to produce the output for this rule.
+``` call_dots:
+    methods:
+        cooltools:
+            do: True
+            max_dist: 10000000
+            fdr: 0.02
+            arguments: ""
+        chromosight:
+            do: True
+        mustache:
+            do: True
+            max_dist: 10000000
+            arguments: "-pt 0.05 -st 0.8"
+    resolutions:
+        - 10000
+    samples:
+        - test_cool ```
+
+`quaich`  config.yaml has four main sections:
+- genome
+- annotations
+- i/o 
+- snakemake rule configurations
+```
+
+The following analyses can be configured:
+- eigenvector: calculates cis eigenvectors using cooltools for all resolutions within specified _resolution_limits_. 
+- saddle: calculates saddles, reflecting average interaction preferences, from cis eigenvectors for each sample using cooltools.
+- pileups: does everything :)
+- loopability: tba
+- insulation: calculates diamond insulation score for specified resolutions and window sizes, using cooltools. Currently runs separately for different window sizes. 
+- call_dots: three methods of calling dots, at specified resolutions, and postprocess output to bedpe. Implemented callers are cooltools, mustache and chromosight. Only runs on specified samples. 
+ - compare_boundaries: generates differential boundaries between specified samples, used as input for pileups.
+- call_TADs: combines lists of strong boundaries for specified samples into a list across window sizes for each resolution, filtered by length, used as input for pileups. 
 
 ## Authors
 
@@ -23,7 +77,7 @@ If you use this workflow in a paper, don't forget to give credits to the authors
 
 ### Step 2: Configure workflow
 
-Configure the workflow according to your needs via editing the files in the `config/` folder. Adjust `config.yaml` to configure the workflow execution, and `samples.tsv` to specify your sample setup.
+Configure the workflow according to your needs via editing the files in the `config/` folder. Adjust `config.yaml` to configure the workflow execution, and `samples.tsv` to specify your sample setup. If you want to use any external bed or bedpe files for pileups, describe them in the `annotations.tsv` file, and pairings of samples with annotations in `samples_annotations.tsv`.
 
 ### Step 3: Install Snakemake and other requirements
 
@@ -43,30 +97,29 @@ Activate the conda environment:
 
 Test your configuration by performing a dry-run via
 
-    snakemake --use-conda -n
+    snakemake --use-conda --configfile config/config.yml -n
 
 Execute the workflow locally via
 
-    snakemake --use-conda --cores $N
+    snakemake --use-conda --configfile config/config.yml --cores $N
 
 using `$N` cores or run it in a cluster environment via
 
-    snakemake --use-conda --cluster qsub --jobs 100
+    snakemake --use-conda --configfile config/config.yml --cluster qsub --jobs 100
 
 or
 
-    snakemake --use-conda --drmaa --jobs 100
+    snakemake --use-conda --configfile config/config.yml --drmaa --jobs 100
+
+Alternatively, you might want to look into snakemake profiles already available for your HPC scheduler online, for example, [here](https://github.com/Snakemake-Profiles) or elsewhere.
 
 If you not only want to fix the software stack but also the underlying OS, use
 
-    snakemake --use-conda --use-singularity
+    snakemake --use-conda --configfile config/config.yml --use-singularity
 
 in combination with any of the modes above. *(Not yet available)*
 See the [Snakemake documentation](https://snakemake.readthedocs.io/en/stable/executable.html) for further details.
 
-Run with custom configuration file: 
-
-    snakemake --configfile config/config.yaml
 
 ### Step 5: Investigate results *not available yet*
 
