@@ -55,7 +55,6 @@ insulation_folder: results/insulation
 tad_folder: results/tads
 loop_folder: results/loops
 boundary_folder: results/boundaries
-loopability_folder: results/loopability
 
 resolutions:
     - 1000000

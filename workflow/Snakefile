@@ -52,16 +52,11 @@ boundary_folder = path.normpath(
     config.get("boundary_folder", path.join(project_folder, "boundaries"))
 )
 boundary_folder_name = path.basename(boundary_folder)
-loopability_folder = path.normpath(
-    config.get("loopability_folder", path.join(project_folder, "loopability"))
-)
-loopability_folder_name = path.basename(loopability_folder)
 outfolders = {
     tad_folder_name: tad_folder,
     loop_folder_name: loop_folder,
     boundary_folder_name: boundary_folder,
     beds_folder_name: beds_folder,
-    loopability_folder_name: loopability_folder,
 }
 
 ### Input genome
