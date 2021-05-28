@@ -91,19 +91,16 @@ pileups:
     shifts: 1
     expected: True
     ooe: True #Only applies when expected is True
-    rescale_pad: 1
-
-loopability:
-    do: True
-    n_random_samples: 1
-    CV_quantile_filter: 0.995
-    resolutions:
-        - 1000
-        - 10000
-    shifts: 1
     arguments:
-        short_range: "--subset 1000 --maxdist 2000000"
-        long_range: "--subset 1000 --mindist 2000000"
+        distal: ""
+        by_distance: "--by_distance"
+        local: "--local"
+        local_rescaled: '--local --rescale --rescale_pad 1'
+        by_strand_by_distance: "--by_strand --by_distance"
+        by_strand_local: "--by_strand --local"
+        by_strand_distal: "--by_strand"
+        by_window_short_range: "--by_window --subset 1000 --maxdist 2000000"
+        by_window_long_range:  "--by_window --subset 1000 --mindist 2000000"
 
 insulation:
     do: True
