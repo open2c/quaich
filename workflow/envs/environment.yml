@@ -9,7 +9,7 @@ dependencies:
   - cython
   - snakemake
   - cooler
-  - chromosight
+  - chromosight>=1.6.1
   - ucsc-bedgraphtobigwig
   - scikit-image
   - tqdm
