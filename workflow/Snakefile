@@ -8,7 +8,6 @@ import pandas as pd
 import bioframe
 from scipy import spatial
 
-
 localrules:
     all,
     merge_dots_across_resolutions,
@@ -127,7 +126,7 @@ bed_df.loc[:, "local_path"] = bed_df.apply(
 )
 bed_df = bed_df.set_index("bedname").replace("-", np.nan)
 
-pileup_params = config["pileups"]["arguments"]
+pileup_params = config['pileups']['arguments']
 
 bed_df[list(pileup_params.keys())] = ~bed_df[list(pileup_params.keys())].isna()
 
@@ -401,73 +400,52 @@ rule make_pileups_shifts:
 
 def dedup_dots(dots, hiccups_filter=False):
     newdots = []
-    ress = list(sorted(set(dots["res"])))
-    for chrom in sorted(set(dots["chrom1"])):
-        chromdots = (
-            dots[dots["chrom1"] == chrom]
-            .sort_values(["start1", "start2"])
-            .reset_index(drop=True)
-        )
+    ress = list(sorted(set(dots['res'])))
+    for chrom in sorted(set(dots['chrom1'])):
+        chromdots = dots[dots['chrom1']==chrom].sort_values(['start1', 'start2']).reset_index(drop=True)
         for res in ress:
-            chromdots["Supported_%s" % res] = chromdots["res"] == res
-        tree = spatial.cKDTree(chromdots[["start1", "start2"]])
+            chromdots['Supported_%s' % res] = (chromdots['res']==res)
+        tree = spatial.cKDTree(chromdots[['start1', 'start2']])
         drop = []
-        for i, j in tree.query_pairs(r=50000):
-            ires = chromdots.at[i, "res"]
-            jres = chromdots.at[j, "res"]
-            chromdots.at[j, "Supported_%s" % ires] = True
-            chromdots.at[i, "Supported_%s" % jres] = True
-            if (
-                ress[-1] in (ires, jres)
-                or abs(chromdots.at[j, "start1"] - chromdots.at[i, "start1"]) <= 20000
-            ):
-                if ires > jres:
-                    drop.append(i)
-                else:
-                    drop.append(j)
+        for i, j in tree.query_pairs(r=20000):
+            ires = chromdots.at[i, 'res']
+            jres = chromdots.at[j, 'res']
+            chromdots.at[j, 'Supported_%s' % ires] = True
+            chromdots.at[i, 'Supported_%s' % jres] = True
+            if ires == jres:
+                continue
+            elif ires>jres:
+            # if ress[-1] in (ires, jres) or abs(chromdots.at[j, 'start1']-chromdots.at[i, 'start1'])<=20000:
+                drop.append(i)
+            else:
+                drop.append(j)
         newdots.append(chromdots.drop(drop))
-    deduped = pd.concat(newdots).sort_values(["chrom1", "start1", "start2"])
+    deduped = pd.concat(newdots).sort_values(['chrom1', 'start1', 'start2'])
     if hiccups_filter:
         l = len(deduped)
-        deduped = deduped[
-            ~(
-                (deduped["start2"] - deduped["start1"] > 100000)
-                & (~np.any(deduped[["Supported_%s" % res for res in ress[1:]]], axis=1))
-            )
-        ]
-        print(
-            l - len(deduped),
-            "loops filtered out as unreliable %s resolution calls" % ress[0],
-        )
+        deduped = deduped[~((deduped['start2']-deduped['start1']>100000) & (~np.any(deduped[['Supported_%s'%res for res in ress[1:]]], axis=1)))]
+        print(l-len(deduped), 'loops filtered out as unreliable %s resolution calls' % ress[0])
     return deduped
 
-
 def read_dots(f):
-    df = bioframe.read_table(f, schema="bedpe", index_col=False).dropna(axis=1)
-    res = int(f.split("_")[-1].split(".")[0])
-    df["res"] = res
+    df = bioframe.read_table(f, schema='bedpe', index_col=False).dropna(axis=1)
+    res = int(f.split('_')[-1].split('.')[0])
+    df['res'] = res
     return df
-
 
 rule merge_dots_across_resolutions:
     input:
-        dots=lambda wildcards,: [
-            f"{loop_folder}/Loops_{{method}}_{{sample}}_{resolution}.bedpe"
-            for resolution in config["call_dots"]["resolutions"]
-        ],
+        dots=lambda wildcards,: [f"{loop_folder}/Loops_{{method}}_{{sample}}_{resolution}.bedpe" for resolution in config["call_dots"]["resolutions"]],
     output:
-        f"{loop_folder}/Loops_{{method}}_{{sample}}.bedpe",
+        f"{loop_folder}/Loops_{{method}}_{{sample}}.bedpe"
     threads: 1
     resources:
         mem_mb=lambda wildcards, threads: 1024,
         runtime=5,
     run:
         dots = pd.concat((map(read_dots, input.dots))).reset_index(drop=True)
-        dots = dedup_dots(dots)[
-            ["chrom1", "start1", "end1", "chrom2", "start2", "end2"]
-        ]
-        dots.to_csv(output[0], sep="\t", header=False, index=False)
-
+        dots = dedup_dots(dots)[['chrom1', 'start1', 'end1', 'chrom2', 'start2', 'end2']]
+        dots.to_csv(output[0], sep='\t', header=False, index=False)
 
 rule call_loops_cooltools:
     input:
@@ -475,7 +453,7 @@ rule call_loops_cooltools:
         expected=f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
         regions=lambda wildcards: config["regions"],
     output:
-        f"{loop_folder}/Loops_cooltools_{{sample}}_{{resolution,[0-9]+}}.bedpe",
+         f"{loop_folder}/Loops_cooltools_{{sample}}_{{resolution,[0-9]+}}.bedpe",
     threads: 4
     params:
         args=config["call_dots"]["methods"]["cooltools"]["arguments"],
