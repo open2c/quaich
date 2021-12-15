@@ -268,7 +268,7 @@ dot_methods = [
 ]
 if dot_methods:
     loops = expand(
-        f"{loop_folder}/Loops_{{method}}_{{sampleLoops}}.bedpe",
+        f"{loop_folder}/merged_resolutions/Loops_{{method}}_{{sampleLoops}}.bedpe",
         method=dot_methods,
         sampleLoops=config["call_dots"]["samples"],
     )
@@ -365,37 +365,37 @@ rule make_pileups:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
         expected=f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
         bedfile=lambda wildcards: bedfiles_dict[wildcards.bedfile],
-        regions=lambda wildcards: config["regions"],
+        view=lambda wildcards: config["view"],
     output:
         f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_expected_{{mode,.*}}.clpy",
     params:
         format=lambda wildcards: bedtype_dict[wildcards.bedfile],
         ooe=lambda wildcards: "--ooe" if config["pileups"]["ooe"] else "",
         mode=lambda wildcards: pileup_params[wildcards.mode],
-    threads: 2
+    threads: 4
     resources:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
     shell:
-        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --regions {{input.regions}} --basetype {{params.format}} {{params.mode}} --n_proc {{threads}} --expected {{input.expected}} --outname {{output[0]}} --excl_chrs {excl_chroms}"
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --view {{input.view}} --features_format {{params.format}} {{params.mode}} -p {{threads}} --expected {{input.expected}} --outname {{output[0]}} --excl_chrs {excl_chroms}"
 
 
 rule make_pileups_shifts:
     input:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
         bedfile=lambda wildcards: bedfiles_dict[wildcards.bedfile],
-        regions=lambda wildcards: config["regions"],
+        view=lambda wildcards: config["view"],
     output:
         f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_{{shifts}}-shifts_{{mode,.*}}.clpy",
     params:
         format=lambda wildcards: bedtype_dict[wildcards.bedfile],
         mode=lambda wildcards: pileup_params[wildcards.mode],
-    threads: 2
+    threads: 8
     resources:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
     shell:
-        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --regions {{input.regions}} --basetype {{params.format}} --nshifts {{shifts}} {{params.mode}} --n_proc {{threads}} --outname {{output[0]}} --excl_chrs {excl_chroms}"
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --view {{input.view}} --features_format {{params.format}} --nshifts {{shifts}} {{params.mode}} -p {{threads}} --outname {{output[0]}} --excl_chrs {excl_chroms}"
 
 
 def dedup_dots(dots, hiccups_filter=False):
@@ -437,7 +437,7 @@ rule merge_dots_across_resolutions:
     input:
         dots=lambda wildcards,: [f"{loop_folder}/Loops_{{method}}_{{sample}}_{resolution}.bedpe" for resolution in config["call_dots"]["resolutions"]],
     output:
-        f"{loop_folder}/Loops_{{method}}_{{sample}}.bedpe"
+        f"{loop_folder}/merged_resolutions/Loops_{{method}}_{{sample}}.bedpe"
     threads: 1
     resources:
         mem_mb=lambda wildcards, threads: 1024,
@@ -451,7 +451,7 @@ rule call_loops_cooltools:
     input:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
         expected=f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
-        regions=lambda wildcards: config["regions"],
+        view=lambda wildcards: config["view"],
     output:
          f"{loop_folder}/Loops_cooltools_{{sample}}_{{resolution,[0-9]+}}.bedpe",
     threads: 4
@@ -463,10 +463,9 @@ rule call_loops_cooltools:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
     shell:
-        f"cooltools call-dots -p {{threads}} {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.expected}} "
-        f"--fdr {{params.fdr}} --max-loci-separation {{params.dist}} --regions {{input.regions}} {{params.args}} -o {{output}} && "
-        f"mv {{output}} {{output}}.preproc &&"
-        f"tail -n +2 {{output}}.postproc | cut -f1-6 > {{output}}"
+        f"cooltools dots -p {{threads}} {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.expected}} "
+        f"--fdr {{params.fdr}} --max-loci-separation {{params.dist}} --view {{input.view}} {{params.args}} -o {{output}} && "
+        f"tail -n +2 {{output}}.postproc.bedpe | cut -f1-6 > {{output}}"
 
 
 rule call_loops_chromosight:
@@ -645,7 +644,7 @@ rule make_insulation:
         mem_mb=32 * 1024,
         runtime=240,
     shell:
-        "cooltools diamond-insulation {input.cooler}::resolutions/{wildcards.resolution} {wildcards.window} --chunksize {params.chunksize} > {output}"
+        "cooltools insulation {input.cooler}::resolutions/{wildcards.resolution} {wildcards.window} --chunksize {params.chunksize} > {output}"
 
 
 rule make_saddles:
@@ -655,7 +654,7 @@ rule make_saddles:
         ),
         expected=f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
-        regions=lambda wildcards: config["regions"],
+        view=lambda wildcards: config["view"],
     output:
         saddle=f"{saddles_folder}/{{sample}}_{{resolution,[0-9]+}}_{{bins,[0-9]+}}{{dist,.*}}.saddledump.npz",
         digitized=f"{saddles_folder}/{{sample}}_{{resolution,[0-9]+}}_{{bins,[0-9]+}}{{dist,.*}}.digitized.tsv",
@@ -670,13 +669,13 @@ rule make_saddles:
         mem_mb=8 * 1024,
         runtime=60,
     shell:
-        "cooltools compute-saddle -o {params.prefix} {params.args} {params.distargs} --regions {input.regions} --n-bins {wildcards.bins} {input.cooler}::resolutions/{wildcards.resolution} {input.eigenvector} {input.expected}"
+        "cooltools saddle -o {params.prefix} {params.args} {params.distargs} --view {input.view} --n-bins {wildcards.bins} {input.cooler}::resolutions/{wildcards.resolution} {input.eigenvector} {input.expected}"
 
 
 rule make_expected:
     input:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
-        regions=lambda wildcards: config["regions"],
+        view=lambda wildcards: config["view"],
     output:
         f"{expected_folder}/{{sample}}_{{resolution,[0-9]+}}.expected.tsv",
     threads: 4
@@ -684,7 +683,7 @@ rule make_expected:
         mem_mb=lambda wildcards, threads: threads * 8 * 1024,
         runtime=60,
     shell:
-        "cooltools compute-expected -p {threads} {input.cooler}::resolutions/{wildcards.resolution} --regions {input.regions} --ignore-diags 0 -o {output}"
+        "cooltools expected-cis -p {threads} {input.cooler}::resolutions/{wildcards.resolution} --view {input.view} --ignore-diags 0 -o {output}"
 
 
 rule make_eigenvectors:
@@ -693,7 +692,7 @@ rule make_eigenvectors:
             f'{config["path_genome_folder"]}/gc/{genome}_{{resolution}}_gc.bedgraph'
         ),
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
-        regions=lambda wildcards: config["regions"],
+        view=lambda wildcards: config["view"],
     output:
         f"{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.vecs.tsv",
         f"{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.lam.txt",
@@ -705,7 +704,7 @@ rule make_eigenvectors:
         mem_mb=8 * 1024,
         runtime=60,
     shell:
-        "cooltools call-compartments --reference-track {input.reftrack} --regions {input.regions} --bigwig {input.cooler}::resolutions/{wildcards.resolution} -o {params.prefix}"
+        "cooltools eigs-cis --reference-track {input.reftrack} --view {input.view} --bigwig {input.cooler}::resolutions/{wildcards.resolution} -o {params.prefix}"
 
 
 rule make_gc:
