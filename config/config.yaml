@@ -75,7 +75,7 @@ saddle:
     distance_limits:
         - 1600000
         - 102400000
-    args: --strength --quantiles --qrange 0.01 0.99
+    args: --strength --qrange 0.01 0.99
 
 pileups:
     do: True
