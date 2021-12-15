@@ -14,5 +14,5 @@ dependencies:
   - scikit-image
   - tqdm
   - pip:
-    - cooltools
+    - cooltools>=0.5
     - https://github.com/open2c/coolpuppy/archive/master.zip
