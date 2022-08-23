@@ -8,6 +8,7 @@ import pandas as pd
 import bioframe
 from scipy import spatial
 
+
 localrules:
     all,
     merge_dots_across_resolutions,
@@ -66,8 +67,6 @@ genome = config["genome"]
 chroms = pd.read_csv(
     f'{config["chromsizes"]}', sep="\t", names=["chrom", "start", "end"]
 )["chrom"].values
-chroms = list(filter(lambda x: x not in config.get("ignore_chroms", []), chroms))
-excl_chroms = ",".join(config.get("ignore_chroms", []))
 
 ### Input cool files
 from urllib.parse import urlparse
@@ -126,7 +125,7 @@ bed_df.loc[:, "local_path"] = bed_df.apply(
 )
 bed_df = bed_df.set_index("bedname").replace("-", np.nan)
 
-pileup_params = config['pileups']['arguments']
+pileup_params = config["pileups"]["arguments"]
 
 bed_df[list(pileup_params.keys())] = ~bed_df[list(pileup_params.keys())].isna()
 
@@ -168,7 +167,7 @@ if config["eigenvector"]["do"]:
 if config["saddle"]["do"]:
     saddle_mindist, saddle_maxdist = config["saddle"]["distance_limits"]
     saddle_mindists = [
-        int(saddle_mindist * 2 ** i)
+        int(saddle_mindist * 2**i)
         for i in np.arange(0, np.log2(saddle_maxdist / saddle_mindist))
     ]
     saddle_separations = [f"_dist_{mindist}-{mindist*2}" for mindist in saddle_mindists]
@@ -191,7 +190,7 @@ if config["pileups"]["do"] or config["pileups"]["bed_pairs"]["do"]:
         )
     )
     mindists = [
-        int(pileups_mindist * 2 ** i)
+        int(pileups_mindist * 2**i)
         for i in np.arange(0, np.log2(pileups_maxdist / pileups_mindist))
     ]
     separations = [f"_dist_{mindist}-{mindist*2}" for mindist in mindists]
@@ -363,89 +362,109 @@ rule all:
 rule make_pileups:
     input:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
+        features=lambda wildcards: bedfiles_dict[wildcards.features],
         expected=f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
-        bedfile=lambda wildcards: bedfiles_dict[wildcards.bedfile],
         view=lambda wildcards: config["view"],
     output:
-        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_expected_{{mode,.*}}.clpy",
+        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{features}}_expected_{{extra,.*}}.clpy",
     params:
-        format=lambda wildcards: bedtype_dict[wildcards.bedfile],
+        format=lambda wildcards: bedtype_dict[wildcards.features],
         ooe=lambda wildcards: "--ooe" if config["pileups"]["ooe"] else "",
-        mode=lambda wildcards: pileup_params[wildcards.mode],
+        extra=lambda wildcards: pileup_params[wildcards.extra],
     threads: 4
     resources:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
     shell:
-        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --view {{input.view}} --features_format {{params.format}} {{params.mode}} -p {{threads}} --expected {{input.expected}} --outname {{output[0]}} --excl_chrs {excl_chroms}"
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.features}} --view {{input.view}} --features_format {{params.format}} {{params.extra}} -p {{threads}} --expected {{input.expected}} --outname {{output[0]}}"
 
 
 rule make_pileups_shifts:
     input:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
-        bedfile=lambda wildcards: bedfiles_dict[wildcards.bedfile],
+        features=lambda wildcards: bedfiles_dict[wildcards.features],
         view=lambda wildcards: config["view"],
     output:
-        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{bedfile}}_{{shifts}}-shifts_{{mode,.*}}.clpy",
+        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{features}}_{{shifts}}-shifts_{{mode,.*}}.clpy",
     params:
-        format=lambda wildcards: bedtype_dict[wildcards.bedfile],
+        format=lambda wildcards: bedtype_dict[wildcards.features],
         mode=lambda wildcards: pileup_params[wildcards.mode],
     threads: 8
     resources:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
     shell:
-        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.bedfile}} --view {{input.view}} --features_format {{params.format}} --nshifts {{shifts}} {{params.mode}} -p {{threads}} --outname {{output[0]}} --excl_chrs {excl_chroms}"
+        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.features}} --view {{input.view}} --features_format {{params.format}} --nshifts {{shifts}} {{params.mode}} -p {{threads}} --outname {{output[0]}}"
 
 
 def dedup_dots(dots, hiccups_filter=False):
     newdots = []
-    ress = list(sorted(set(dots['res'])))
-    for chrom in sorted(set(dots['chrom1'])):
-        chromdots = dots[dots['chrom1']==chrom].sort_values(['start1', 'start2']).reset_index(drop=True)
+    ress = list(sorted(set(dots["res"])))
+    for chrom in sorted(set(dots["chrom1"])):
+        chromdots = (
+            dots[dots["chrom1"] == chrom]
+            .sort_values(["start1", "start2"])
+            .reset_index(drop=True)
+        )
         for res in ress:
-            chromdots['Supported_%s' % res] = (chromdots['res']==res)
-        tree = spatial.cKDTree(chromdots[['start1', 'start2']])
+            chromdots["Supported_%s" % res] = chromdots["res"] == res
+        tree = spatial.cKDTree(chromdots[["start1", "start2"]])
         drop = []
         for i, j in tree.query_pairs(r=20000):
-            ires = chromdots.at[i, 'res']
-            jres = chromdots.at[j, 'res']
-            chromdots.at[j, 'Supported_%s' % ires] = True
-            chromdots.at[i, 'Supported_%s' % jres] = True
+            ires = chromdots.at[i, "res"]
+            jres = chromdots.at[j, "res"]
+            chromdots.at[j, "Supported_%s" % ires] = True
+            chromdots.at[i, "Supported_%s" % jres] = True
             if ires == jres:
                 continue
-            elif ires>jres:
-            # if ress[-1] in (ires, jres) or abs(chromdots.at[j, 'start1']-chromdots.at[i, 'start1'])<=20000:
+            elif ires > jres:
+                # if ress[-1] in (ires, jres) or abs(chromdots.at[j, 'start1']-chromdots.at[i, 'start1'])<=20000:
                 drop.append(i)
             else:
                 drop.append(j)
         newdots.append(chromdots.drop(drop))
-    deduped = pd.concat(newdots).sort_values(['chrom1', 'start1', 'start2'])
+    deduped = pd.concat(newdots).sort_values(["chrom1", "start1", "start2"])
     if hiccups_filter:
         l = len(deduped)
-        deduped = deduped[~((deduped['start2']-deduped['start1']>100000) & (~np.any(deduped[['Supported_%s'%res for res in ress[1:]]], axis=1)))]
-        print(l-len(deduped), 'loops filtered out as unreliable %s resolution calls' % ress[0])
+        deduped = deduped[
+            ~(
+                (deduped["start2"] - deduped["start1"] > 100000)
+                & (~np.any(deduped[["Supported_%s" % res for res in ress[1:]]], axis=1))
+            )
+        ]
+        print(
+            l - len(deduped),
+            "loops filtered out as unreliable %s resolution calls" % ress[0],
+        )
     return deduped
 
+
 def read_dots(f):
-    df = bioframe.read_table(f, schema='bedpe', index_col=False).dropna(axis=1)
-    res = int(f.split('_')[-1].split('.')[0])
-    df['res'] = res
+    df = bioframe.read_table(f, schema="bedpe", index_col=False).dropna(axis=1)
+    res = int(f.split("_")[-1].split(".")[0])
+    df["res"] = res
     return df
+
 
 rule merge_dots_across_resolutions:
     input:
-        dots=lambda wildcards,: [f"{loop_folder}/Loops_{{method}}_{{sample}}_{resolution}.bedpe" for resolution in config["call_dots"]["resolutions"]],
+        dots=lambda wildcards,: [
+            f"{loop_folder}/Loops_{{method}}_{{sample}}_{resolution}.bedpe"
+            for resolution in config["call_dots"]["resolutions"]
+        ],
     output:
-        f"{loop_folder}/merged_resolutions/Loops_{{method}}_{{sample}}.bedpe"
+        f"{loop_folder}/merged_resolutions/Loops_{{method}}_{{sample}}.bedpe",
     threads: 1
     resources:
         mem_mb=lambda wildcards, threads: 1024,
         runtime=5,
     run:
         dots = pd.concat((map(read_dots, input.dots))).reset_index(drop=True)
-        dots = dedup_dots(dots)[['chrom1', 'start1', 'end1', 'chrom2', 'start2', 'end2']]
-        dots.to_csv(output[0], sep='\t', header=False, index=False)
+        dots = dedup_dots(dots)[
+            ["chrom1", "start1", "end1", "chrom2", "start2", "end2"]
+        ]
+        dots.to_csv(output[0], sep="\t", header=False, index=False)
+
 
 rule call_loops_cooltools:
     input:
@@ -453,19 +472,15 @@ rule call_loops_cooltools:
         expected=f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
         view=lambda wildcards: config["view"],
     output:
-         f"{loop_folder}/Loops_cooltools_{{sample}}_{{resolution,[0-9]+}}.bedpe",
+        f"{loop_folder}/Loops_cooltools_{{sample}}_{{resolution,[0-9]+}}.bedpe",
     threads: 4
     params:
-        args=config["call_dots"]["methods"]["cooltools"]["arguments"],
-        dist=config["call_dots"]["methods"]["cooltools"]["max_dist"],
-        fdr=config["call_dots"]["methods"]["cooltools"]["fdr"],
+        extra=lambda wildcards: config["call_dots"]["methods"]["cooltools"]["extra"],
     resources:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
-    shell:
-        f"cooltools dots -p {{threads}} {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.expected}} "
-        f"--fdr {{params.fdr}} --max-loci-separation {{params.dist}} --view {{input.view}} {{params.args}} -o {{output}} && "
-        f"tail -n +2 {{output}}.postproc.bedpe | cut -f1-6 > {{output}}"
+    wrapper:
+        "v1.10.0/bio/cooltools/dots"
 
 
 rule call_loops_chromosight:
@@ -486,12 +501,10 @@ rule call_loops_mustache_chrom:
     input:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
     output:
-        temp(
-            f"{loop_folder}/Mustache_bychr/Loops_mustache_{{sample}}_{{resolution,[0-9]+}}_{{chrom}}.bedpe"
-        ),
+        temp(f"{loop_folder}/Loops_mustache_{{sample}}_{{resolution,[0-9]+}}.bedpe"),
     threads: 4
     params:
-        args=config["call_dots"]["methods"]["mustache"]["arguments"],
+        args=config["call_dots"]["methods"]["mustache"]["extra"],
         dist=config["call_dots"]["methods"]["mustache"]["max_dist"],
     resources:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
@@ -500,7 +513,7 @@ rule call_loops_mustache_chrom:
         "envs/mustache_env.yml"
     shell:
         f"python3 -m mustache -p {{threads}} -f {{input.cooler}} -r {{wildcards.resolution}} "
-        f"-ch {{wildcards.chrom}} -d {{params.dist}} {{params.args}} -o {{output}}"
+        f"-d {{params.dist}} {{params.args}} -o {{output}}"
 
 
 rule call_loops_mustache:
@@ -577,9 +590,7 @@ rule make_differential_insulation:
 
 rule make_tads:
     input:
-        insulation=(
-            f"{insulation_folder}/{{sample}}_{{resolution}}_{{window}}.insulation.tsv"
-        ),
+        insulation=(f"{insulation_folder}/{{sample}}_{{resolution}}.insulation.tsv"),
     output:
         f"{tad_folder}/TADs_{{sample}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.bed",
     threads: 1
@@ -587,151 +598,163 @@ rule make_tads:
         mem_mb=1024,
         runtime=60,
     run:
-        from skimage.filters import threshold_li, threshold_otsu
-
-        if config["insulation"]["strength_threshold"] == "Li":
-            thresholding_fun = threshold_li
-        elif config["insulation"]["strength_threshold"] == "Otsu":
-            thresholding_fun = threshold_otsu
-        else:
-            try:
-                thr = float(config["insulation"]["strength_threshold"])
-                thresholding_fun = lambda x: thr
-            except ValueError:
-                raise ValueError(
-                    "Insulating boundary strength threshold can be Li, Otsu or a float"
-                )
-
         ins = pd.read_csv(input.insulation, sep="\t")
-        ins = ins[~ins["is_bad_bin"]].drop(columns=["is_bad_bin"])
-        ins = ins[
-            ins[f"boundary_strength_{wildcards.window}"]
-            > thresholding_fun(
-                ins[f"boundary_strength_{wildcards.window}"].dropna().values
-            )
-        ][["chrom", "start", "end"]]
-        tads = (
-            ins.groupby("chrom")
-            .apply(
-                lambda x: pd.concat(
-                    [x[:-1].reset_index(drop=True), x[1:].reset_index(drop=True)],
-                    axis=1,
-                    ignore_index=True,
-                )
-            )
-            .reset_index(drop=True)
-        )
-        tads.columns = [["chrom1", "start1", "end1", "chrom2", "start2", "end2"]]
-        tads.columns = tads.columns.get_level_values(0)
+        tads = bioframe.merge(ins[ins[f"is_boundary_{wildcards.window}"] == False])
+
         tads = tads[
-            (tads["start2"] - tads["start1"]) <= config["call_TADs"]["max_tad_length"]
+            (tads["end"] - tads["start"]) <= config["call_TADs"]["max_tad_length"]
         ].reset_index(drop=True)
-        tads["start"] = (tads["start1"] + tads["end1"]) // 2
-        tads["end"] = (tads["start2"] + tads["end2"]) // 2
-        tads = tads[["chrom1", "start", "end"]]
         tads.to_csv(output[0], header=False, index=False, sep="\t")
 
 
 rule make_insulation:
     input:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
+        view=lambda wildcards: config["view"],
     output:
-        f"{insulation_folder}/{{sample}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.insulation.tsv",
+        f"{insulation_folder}/{{sample}}_{{resolution,[0-9]+}}.insulation.tsv",
     params:
-        chunksize=lambda wildcards: config["insulation"].get("chunksize", 20000000),
+        window=lambda wildcards: config["insulation"]["resolutions"][
+            int(wildcards.resolution)
+        ],
+        extra=lambda wildcards: config["insulation"].get("extra", ""),
     threads: 1
     resources:
         mem_mb=32 * 1024,
         runtime=240,
-    shell:
-        "cooltools insulation {input.cooler}::resolutions/{wildcards.resolution} {wildcards.window} --chunksize {params.chunksize} > {output}"
+    wrapper:
+        "v1.10.0/bio/cooltools/insulation"
 
 
 rule make_saddles:
     input:
-        eigenvector=(
+        cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
+        track=(
             f"{eigenvectors_folder}/{{sample}}_{{resolution}}_eigenvectors.cis.vecs.tsv"
         ),
         expected=f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
-        cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
         view=lambda wildcards: config["view"],
     output:
         saddle=f"{saddles_folder}/{{sample}}_{{resolution,[0-9]+}}_{{bins,[0-9]+}}{{dist,.*}}.saddledump.npz",
-        digitized=f"{saddles_folder}/{{sample}}_{{resolution,[0-9]+}}_{{bins,[0-9]+}}{{dist,.*}}.digitized.tsv",
+        digitized_track=f"{saddles_folder}/{{sample}}_{{resolution,[0-9]+}}_{{bins,[0-9]+}}{{dist,.*}}.digitized.tsv",
     params:
-        prefix=lambda wildcards, output: output["saddle"][:-15],
-        distargs=lambda wildcards: split_dist(
-            wildcards.dist, "--min-dist", "--max-dist"
+        extra=lambda wildcards: " ".join(
+            [
+                config["saddle"]["extra"],
+                split_dist(wildcards.dist, "--min-dist", "--max-dist"),
+                "--n-bins {wildcards.bins}",
+            ]
         ),
-        args=config["saddle"]["args"],
+        range=lambda wildcards: config["saddle"]["range"],
     threads: 1
     resources:
         mem_mb=8 * 1024,
         runtime=60,
-    shell:
-        "cooltools saddle -o {params.prefix} {params.args} {params.distargs} --view {input.view} --n-bins {wildcards.bins} {input.cooler}::resolutions/{wildcards.resolution} {input.eigenvector} {input.expected}"
+    wrapper:
+        "v1.10.0/bio/cooltools/saddle"
 
 
-rule make_expected:
+rule make_expected_cis:
     input:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
         view=lambda wildcards: config["view"],
     output:
         f"{expected_folder}/{{sample}}_{{resolution,[0-9]+}}.expected.tsv",
+    params:
+        extra="--ignore-diags 0",
     threads: 4
     resources:
         mem_mb=lambda wildcards, threads: threads * 8 * 1024,
         runtime=60,
-    shell:
-        "cooltools expected-cis -p {threads} {input.cooler}::resolutions/{wildcards.resolution} --view {input.view} --ignore-diags 0 -o {output}"
+    wrapper:
+        "v1.10.0/bio/cooltools/expected_cis"
 
 
-rule make_eigenvectors:
+rule make_eigenvectors_cis:
     input:
-        reftrack=(
-            f'{config["path_genome_folder"]}/gc/{genome}_{{resolution}}_gc.bedgraph'
-        ),
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
         view=lambda wildcards: config["view"],
+        track=lambda wildcards: path.join(
+            config["path_genome_folder"],
+            "gc/",
+            f"{genome}_{{resolution}}_gc.bedgraph",
+        ),
     output:
-        f"{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.vecs.tsv",
-        f"{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.lam.txt",
-        f"{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.bw",
+        vecs=f"{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.vecs.tsv",
+        lam=f"{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.lam.txt",
+        bigwig=f"{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.bw",
     params:
-        prefix=lambda wildcards, output: output[0][:-13],
+        extra="--bigwig",
     threads: 1
     resources:
         mem_mb=8 * 1024,
         runtime=60,
-    shell:
-        "cooltools eigs-cis --reference-track {input.reftrack} --view {input.view} --bigwig {input.cooler}::resolutions/{wildcards.resolution} -o {params.prefix}"
+    wrapper:
+        "v1.10.0/bio/cooltools/eigs_cis"
+
+
+rule make_eigenvectors_trans:
+    input:
+        cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
+        track=lambda wildcards: path.join(
+            config["path_genome_folder"],
+            "gc/",
+            f"{genome}_{{resolution}}_gc.bedgraph",
+        ),
+    output:
+        f"{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.trans.vecs.tsv",
+        f"{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.trans.lam.txt",
+        f"{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.trans.bw",
+    params:
+        track_name_col="GC",
+        extra="",
+    threads: 1
+    resources:
+        mem_mb=8 * 1024,
+        runtime=60,
+    wrapper:
+        "v1.10.0/bio/cooltools/eigs_trans"
 
 
 rule make_gc:
     input:
-        fasta=f'{config["path_genome_fasta"]}',
-        bins=f'{config["path_genome_folder"]}/bins/{genome}_{{resolution}}_bins.bed',
+        fasta=config["path_genome_fasta"],
+        bins=lambda wildcards: path.join(
+            f'{config["path_genome_folder"]}',
+            "bins/",
+            f"{genome}_{{resolution}}_bins.bed",
+        ),
     output:
-        f'{config["path_genome_folder"]}/gc/{genome}_{{resolution,[0-9]+}}_gc.bedgraph',
+        path.join(
+            config["path_genome_folder"],
+            "gc/",
+            f"{genome}_{{resolution,[0-9]+}}_gc.bedgraph",
+        ),
     threads: 1
     resources:
         mem_mb=8 * 1024,
         runtime=60,
     shell:
-        "cooltools genome gc {input.bins} {input.fasta} > {output}"
+        "v1.10.0/bio/cooltools/genome/gc"
 
 
 rule make_bins:
     input:
-        chromsizes=f'{config["chromsizes"]}',
+        chromsizes=config["chromsizes"],
     output:
-        f'{config["path_genome_folder"]}/bins/{genome}_{{resolution,[0-9]+}}_bins.bed',
+        path.join(
+            config["path_genome_folder"],
+            "bins/",
+            f"{genome}_{{resolution,[0-9]+}}_bins.bed",
+        ),
     threads: 1
     resources:
         mem_mb=8 * 1024,
         runtime=60,
-    shell:
-        "cooltools genome binnify {input} {wildcards.resolution} > {output}"
+    params:
+        binsize=lambda wildcards: wildcards["resolution"],
+    wrapper:
+        "v1.10.0/bio/cooltools/genome/binnify"
 
 
 def download_file(file, local_filename):
