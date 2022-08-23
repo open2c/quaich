@@ -43,14 +43,15 @@ rule make_expected:
     resolutions:
         - 10000
     samples:
-        - test_cool ```
+        - test_cool
+```
 
 `quaich`  config.yaml has four main sections:
 - genome
 - annotations
 - i/o 
 - snakemake rule configurations
-```
+
 
 The following analyses can be configured:
 - eigenvector: calculates cis eigenvectors using cooltools for all resolutions within specified _resolution_limits_. 
