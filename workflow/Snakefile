@@ -379,7 +379,7 @@ def get_shifts(norm_string):
         shifts = int(norm_string.split("-")[0])
     else:
         shifts = 0
-    return f"--shifts {shifts}"
+    return f"--nshifts {shifts}"
 
 
 ###### Define rules #######
