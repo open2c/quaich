@@ -345,6 +345,14 @@ def split_dist(dist_wildcard, mindist_arg="--mindist", maxdist_arg="--maxdist"):
         return f"{mindist_arg} {mindist} {maxdist_arg} {maxdist}"
 
 
+def get_shifts(norm_string):
+    if norm_string.endswith("shifts"):
+        shifts = int(norm_string.split("-")[0])
+    else:
+        shifts = 0
+    return f"--shifts {shifts}"
+
+
 ###### Define rules #######
 rule all:
     input:
@@ -363,38 +371,23 @@ rule make_pileups:
     input:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
         features=lambda wildcards: bedfiles_dict[wildcards.features],
-        expected=f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
+        expected=lambda wildcards: f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv"
+        if wildcards.norm == "expected"
+        else [],
         view=lambda wildcards: config["view"],
     output:
-        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{features}}_expected_{{extra,.*}}.clpy",
+        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{features}}_{{norm}}_{{extra,.*}}.clpy",
+    wildcard_constraints:
+        norm="(expected|nonorm|[0-9]+\-shifts)",
     params:
-        format=lambda wildcards: bedtype_dict[wildcards.features],
-        ooe=lambda wildcards: "--ooe" if config["pileups"]["ooe"] else "",
-        extra=lambda wildcards: pileup_params[wildcards.extra],
+        features_format=lambda wildcards: bedtype_dict[wildcards.features],
+        extra=lambda wildcards: f"{pileup_params[wildcards.extra]} {get_shifts(wildcards.norm)}",
     threads: 4
     resources:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
-    shell:
-        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.features}} --view {{input.view}} --features_format {{params.format}} {{params.extra}} -p {{threads}} --expected {{input.expected}} --outname {{output[0]}}"
-
-
-rule make_pileups_shifts:
-    input:
-        cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
-        features=lambda wildcards: bedfiles_dict[wildcards.features],
-        view=lambda wildcards: config["view"],
-    output:
-        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{features}}_{{shifts}}-shifts_{{mode,.*}}.clpy",
-    params:
-        format=lambda wildcards: bedtype_dict[wildcards.features],
-        mode=lambda wildcards: pileup_params[wildcards.mode],
-    threads: 8
-    resources:
-        mem_mb=lambda wildcards, threads: threads * 16 * 1024,
-        runtime=24 * 60,
-    shell:
-        f"coolpup.py {{input.cooler}}::resolutions/{{wildcards.resolution}} {{input.features}} --view {{input.view}} --features_format {{params.format}} --nshifts {{shifts}} {{params.mode}} -p {{threads}} --outname {{output[0]}}"
+    wrapper:
+        "60f1fc1a895fff794569fefa51312199a7e0bfd2/bio/coolpuppy"
 
 
 def dedup_dots(dots, hiccups_filter=False):
@@ -492,16 +485,21 @@ rule call_loops_chromosight:
     resources:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
+    conda:
+        "envs/chromosight_env.yml"
     shell:
         f"chromosight detect --pattern loops --no-plotting -t {{threads}} {{input.cooler}}::resolutions/{{wildcards.resolution}} {loop_folder}/loops_chromosight_{{wildcards.sample}}_{{wildcards.resolution}} && "
         f"tail -n +2 {loop_folder}/loops_chromosight_{{wildcards.sample}}_{{wildcards.resolution}}.tsv | cut -f1-6 > {{output}}"
 
 
-rule call_loops_mustache_chrom:
+rule call_loops_mustache:
     input:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
     output:
-        temp(f"{loop_folder}/Loops_mustache_{{sample}}_{{resolution,[0-9]+}}.bedpe"),
+        tempfile=temp(
+            f"{loop_folder}/Loops_mustache_{{sample}}_{{resolution,[0-9]+}}.bedpe_tmp"
+        ),
+        output=f"{loop_folder}/Loops_mustache_{{sample}}_{{resolution,[0-9]+}}.bedpe",
     threads: 4
     params:
         args=config["call_dots"]["methods"]["mustache"]["extra"],
@@ -513,31 +511,17 @@ rule call_loops_mustache_chrom:
         "envs/mustache_env.yml"
     shell:
         f"python3 -m mustache -p {{threads}} -f {{input.cooler}} -r {{wildcards.resolution}} "
-        f"-d {{params.dist}} {{params.args}} -o {{output}}"
-
-
-rule call_loops_mustache:
-    input:
-        lambda wildcards: [
-            f"{loop_folder}/Mustache_bychr/Loops_mustache_{{sample}}_{{resolution,[0-9]+}}_{chrom}.bedpe"
-            for chrom in chroms
-        ],
-    output:
-        f"{loop_folder}/Loops_mustache_{{sample}}_{{resolution,[0-9]+}}.bedpe",
-    resources:
-        mem_mb=1024,
-        runtime=60,
-    shell:
-        f"awk 'FNR-1' {{input}} | cut -f1-6 > {{output}}"
+        f"-d {{params.dist}} {{params.args}} -o {{output.tempfile}} && "
+        f"awk 'FNR-1' {{output.tempfile}} | cut -f1-6 > {{output.output}}"
 
 
 rule make_differential_insulation:
     input:
         insulation_WT=(
-            f"{insulation_folder}/{{sampleWT}}_{{resolution}}_{{window}}.insulation.tsv"
+            f"{insulation_folder}/{{sampleWT}}_{{resolution}}.insulation.tsv"
         ),
         insulation_KO=(
-            f"{insulation_folder}/{{sampleKO}}_{{resolution}}_{{window}}.insulation.tsv"
+            f"{insulation_folder}/{{sampleKO}}_{{resolution}}.insulation.tsv"
         ),
     output:
         f"{boundary_folder}/Insulation_{{sampleWT}}_not_{{sampleKO}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.bed",
@@ -546,20 +530,6 @@ rule make_differential_insulation:
         mem_mb=1024,
         runtime=60,
     run:
-        from skimage.filters import threshold_li, threshold_otsu
-
-        if config["insulation"]["strength_threshold"] == "Li":
-            thresholding_fun = threshold_li
-        elif config["insulation"]["strength_threshold"] == "Otsu":
-            thresholding_fun = threshold_otsu
-        else:
-            try:
-                thr = float(config["insulation"]["strength_threshold"])
-                thresholding_fun = lambda x: thr
-            except ValueError:
-                raise ValueError(
-                    "Insulating boundary strength threshold can be Li, Otsu or a float"
-                )
         insWT = pd.read_csv(input.insulation_WT, sep="\t")
         insWT = insWT[~insWT["is_bad_bin"]].drop(columns=["is_bad_bin"])
         insKO = pd.read_csv(input.insulation_KO, sep="\t")
@@ -568,19 +538,14 @@ rule make_differential_insulation:
             insWT, insKO, suffixes=("WT", "KO"), on=["chrom", "start", "end"]
         )
         diff_ins = ins[
-            (
+            (  # Boundary much stronger in WT vs KO
                 ins[f"boundary_strength_{wildcards.window}WT"]
                 / ins[f"boundary_strength_{wildcards.window}KO"]
                 >= config["compare_boundaries"]["fold_change_threshold"]
             )
-            | (
-                (
-                    ins[f"boundary_strength_{wildcards.window}WT"]
-                    > thresholding_fun(
-                        insWT[f"boundary_strength_{wildcards.window}"].dropna().values
-                    )
-                )
-                & np.isnan(ins[f"boundary_strength_{wildcards.window}KO"])
+            | (  # OR there is a strong boundary in WT and not in KO
+                ins[f"is_boundary_{wildcards.window}WT"]
+                & ~ins[f"is_boundary_{wildcards.window}KO"]
             )
         ]
         diff_ins[["chrom", "start", "end"]].to_csv(
@@ -734,7 +699,7 @@ rule make_gc:
     resources:
         mem_mb=8 * 1024,
         runtime=60,
-    shell:
+    wrapper:
         "v1.10.0/bio/cooltools/genome/gc"
 
 

@@ -130,3 +130,5 @@ dmypy.json
 
 cluster_logs/*
 .cluster_status
+
+.snakemake/

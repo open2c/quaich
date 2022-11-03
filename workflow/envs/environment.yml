@@ -1,18 +1,14 @@
 name: quaich
 channels:
-  - conda-forge
   - bioconda
+  - conda-forge
   - defaults
 dependencies:
-  - python>=3.7
+  - python>=3.8
   - pip
   - cython
   - snakemake
   - cooler
-  - chromosight>=1.6.1
   - ucsc-bedgraphtobigwig
-  - scikit-image
+  - bioframe>=0.3.3
   - tqdm
-  - pip:
-    - cooltools>=0.5
-    - https://github.com/open2c/coolpuppy/archive/master.zip
