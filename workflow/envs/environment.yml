@@ -12,3 +12,4 @@ dependencies:
   - ucsc-bedgraphtobigwig
   - bioframe>=0.3.3
   - tqdm
+  - toolz

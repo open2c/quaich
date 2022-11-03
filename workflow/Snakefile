@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import bioframe
 from scipy import spatial
+import toolz
 
 
 localrules:
@@ -195,11 +196,29 @@ if config["pileups"]["do"] or config["pileups"]["bed_pairs"]["do"]:
     ]
     separations = [f"_dist_{mindist}-{mindist*2}" for mindist in mindists]
 
+
+def merge_dicts(dict1, dict2):
+    return toolz.dicttoolz.merge_with(
+        lambda x: list(toolz.itertoolz.concat(x)), dict1, dict2
+    )
+
+
+if config["insulation"]["do"] and config["call_TADs"]["do"]:
+    config["insulation"]["resolutions"] = merge_dicts(
+        config["insulation"]["resolutions"], config["call_TADs"]["resolutions"]
+    )
+elif config["call_TADs"]["do"]:
+    config["insulation"]["resolutions"] = config["call_TADs"]["resolutions"]
+
 if config["insulation"]["do"]:
-    insul_res_win = []
+    insul_res_win_comb = []
+    insul_res_win_arg = {}
     for resolution in config["insulation"]["resolutions"]:
+        insul_res_win_arg[resolution] = " ".join(
+            [str(res) for res in config["insulation"]["resolutions"][resolution]]
+        )
         for win in config["insulation"]["resolutions"][resolution]:
-            insul_res_win.append(f"{resolution}_{win}")
+            insul_res_win_comb.append(f"{resolution}_{win}")
 
 if config["call_TADs"]["do"]:
     tad_res_win = []
@@ -218,11 +237,21 @@ expecteds = expand(
     resolution=resolutions,
 )
 
+insulation = (
+    expand(
+        f"{insulation_folder}/{{sample}}_{{resolution}}.insulation.tsv",
+        sample=samples,
+        resolution=insul_res_win_arg.keys(),
+    )
+    if (config["insulation"]["do"] or config["call_TADs"]["do"])
+    else []
+)
+
 diff_boundaries = (
     expand(
         f"{boundary_folder}/Insulation_{config['compare_boundaries']['samples'][0]}_not_"
         f"{config['compare_boundaries']['samples'][1]}_{{insul_res_win}}.bed",
-        insul_res_win=insul_res_win,
+        insul_res_win=insul_res_win_comb,
     )
     if config["compare_boundaries"]["do"]
     else []
@@ -233,7 +262,7 @@ diff_boundaries_pileups = (
         f"{config['compare_boundaries']['samples'][1]}_{{insul_res_win}}_{{norm}}_local.clpy",
         sample=samples,
         resolution=pileup_resolutions,
-        insul_res_win=insul_res_win,
+        insul_res_win=insul_res_win_comb,
         norm=pileup_norms,
     )
     if config["compare_boundaries"]["do"] and config["pileups"]["do"]
