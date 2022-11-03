@@ -636,7 +636,7 @@ rule make_saddles:
             [
                 config["saddle"]["extra"],
                 split_dist(wildcards.dist, "--min-dist", "--max-dist"),
-                "--n-bins {wildcards.bins}",
+                f"--n-bins {wildcards.bins}",
             ]
         ),
         range=lambda wildcards: config["saddle"]["range"],
