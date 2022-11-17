@@ -416,7 +416,7 @@ rule make_pileups:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
     wrapper:
-        "60f1fc1a895fff794569fefa51312199a7e0bfd2/bio/coolpuppy"
+        "v1.19.1/bio/coolpuppy"
 
 
 def dedup_dots(dots, hiccups_filter=False):
@@ -502,7 +502,7 @@ rule call_loops_cooltools:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
     wrapper:
-        "4ba831fa6e36ea12e6239e7f65498aa2a32c79a3/bio/cooltools/dots"
+        "v1.19.1/bio/cooltools/dots"
 
 
 rule call_loops_chromosight:
@@ -623,7 +623,7 @@ rule make_insulation:
         mem_mb=32 * 1024,
         runtime=240,
     wrapper:
-        "v1.19.0/bio/cooltools/insulation"
+        "v1.19.1/bio/cooltools/insulation"
 
 
 rule make_saddles:
@@ -651,7 +651,7 @@ rule make_saddles:
         mem_mb=8 * 1024,
         runtime=60,
     wrapper:
-        "v1.19.0/bio/cooltools/saddle"
+        "v1.19.1/bio/cooltools/saddle"
 
 
 rule make_expected_cis:
@@ -667,7 +667,7 @@ rule make_expected_cis:
         mem_mb=lambda wildcards, threads: threads * 8 * 1024,
         runtime=60,
     wrapper:
-        "v1.19.0/bio/cooltools/expected_cis"
+        "v1.19.1/bio/cooltools/expected_cis"
 
 
 rule make_eigenvectors_cis:
@@ -690,7 +690,7 @@ rule make_eigenvectors_cis:
         mem_mb=8 * 1024,
         runtime=60,
     wrapper:
-        "v1.19.0/bio/cooltools/eigs_cis"
+        "v1.19.1/bio/cooltools/eigs_cis"
 
 
 rule make_eigenvectors_trans:
@@ -713,7 +713,7 @@ rule make_eigenvectors_trans:
         mem_mb=8 * 1024,
         runtime=60,
     wrapper:
-        "v1.19.0/bio/cooltools/eigs_trans"
+        "v1.19.1/bio/cooltools/eigs_trans"
 
 
 rule make_gc:
@@ -735,7 +735,7 @@ rule make_gc:
         mem_mb=8 * 1024,
         runtime=60,
     wrapper:
-        "v1.19.0/bio/cooltools/genome/gc"
+        "v1.19.1/bio/cooltools/genome/gc"
 
 
 rule make_bins:
@@ -754,7 +754,7 @@ rule make_bins:
     params:
         binsize=lambda wildcards: wildcards["resolution"],
     wrapper:
-        "v1.19.0/bio/cooltools/genome/binnify"
+        "v1.19.1/bio/cooltools/genome/binnify"
 
 
 def download_file(file, local_filename):
