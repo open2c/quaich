@@ -132,3 +132,4 @@ cluster_logs/*
 .cluster_status
 
 .snakemake/
+results/*
