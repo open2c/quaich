@@ -462,7 +462,7 @@ def dedup_dots(dots, hiccups_filter=False):
 
 
 def read_dots(f):
-    df = bioframe.read_table(f, schema="bedpe", index_col=False).dropna(axis=1)
+    df = pd.read_table(f, index_col=False, header=0).dropna(axis=1)
     res = int(f.split("_")[-1].split(".")[0])
     df["res"] = res
     return df
@@ -502,14 +502,15 @@ rule call_loops_cooltools:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
     wrapper:
-        "v1.10.0/bio/cooltools/dots"
+        "4ba831fa6e36ea12e6239e7f65498aa2a32c79a3/bio/cooltools/dots"
 
 
 rule call_loops_chromosight:
     input:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
     output:
-        f"{loop_folder}/Loops_chromosight_{{sample}}_{{resolution,[0-9]+}}.bedpe",
+        bedpe=f"{loop_folder}/Loops_chromosight_{{sample}}_{{resolution,[0-9]+}}.bedpe",
+        json=f"{loop_folder}/Loops_chromosight_{{sample}}_{{resolution,[0-9]+}}.json",
     threads: 4
     resources:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
@@ -517,18 +518,24 @@ rule call_loops_chromosight:
     conda:
         "envs/chromosight_env.yml"
     shell:
-        f"chromosight detect --pattern loops --no-plotting -t {{threads}} {{input.cooler}}::resolutions/{{wildcards.resolution}} {loop_folder}/loops_chromosight_{{wildcards.sample}}_{{wildcards.resolution}} && "
-        f"tail -n +2 {loop_folder}/loops_chromosight_{{wildcards.sample}}_{{wildcards.resolution}}.tsv | cut -f1-6 > {{output}}"
+        f"chromosight detect --pattern loops --no-plotting -t {{threads}} {{input.cooler}}::resolutions/{{wildcards.resolution}} {loop_folder}/Loops_chromosight_{{wildcards.sample}}_{{wildcards.resolution}} && "
+        f"mv {loop_folder}/Loops_chromosight_{{wildcards.sample}}_{{wildcards.resolution}}.tsv {{output.bedpe}}"
 
 
 rule call_loops_mustache:
     input:
+        f"{loop_folder}/Loops_mustache_{{sample}}_{{resolution}}.bedpe_tmp",
+    output:
+        f"{loop_folder}/Loops_mustache_{{sample}}_{{resolution,[0-9]+}}.bedpe",
+    shell:
+        """TAB=$(printf '\t') && cat {input} | sed "1s/.*/chrom1${{TAB}}start1${{TAB}}end1${{TAB}}chrom2${{TAB}}start2${{TAB}}end2${{TAB}}FDR${{TAB}}detection_scale/" > {output}"""
+
+
+rule _call_loops_mustache:
+    input:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
     output:
-        tempfile=temp(
-            f"{loop_folder}/Loops_mustache_{{sample}}_{{resolution,[0-9]+}}.bedpe_tmp"
-        ),
-        output=f"{loop_folder}/Loops_mustache_{{sample}}_{{resolution,[0-9]+}}.bedpe",
+        f"{loop_folder}/Loops_mustache_{{sample}}_{{resolution,[0-9]+}}.bedpe_tmp",
     threads: 4
     params:
         args=config["call_dots"]["methods"]["mustache"]["extra"],
@@ -540,8 +547,7 @@ rule call_loops_mustache:
         "envs/mustache_env.yml"
     shell:
         f"python3 -m mustache -p {{threads}} -f {{input.cooler}} -r {{wildcards.resolution}} "
-        f"-d {{params.dist}} {{params.args}} -o {{output.tempfile}} && "
-        f"awk 'FNR-1' {{output.tempfile}} | cut -f1-6 > {{output.output}}"
+        f"-d {{params.dist}} {{params.args}} -o {{output}}"
 
 
 rule make_differential_insulation:
@@ -617,7 +623,7 @@ rule make_insulation:
         mem_mb=32 * 1024,
         runtime=240,
     wrapper:
-        "v1.10.0/bio/cooltools/insulation"
+        "v1.19.0/bio/cooltools/insulation"
 
 
 rule make_saddles:
@@ -645,7 +651,7 @@ rule make_saddles:
         mem_mb=8 * 1024,
         runtime=60,
     wrapper:
-        "v1.10.0/bio/cooltools/saddle"
+        "v1.19.0/bio/cooltools/saddle"
 
 
 rule make_expected_cis:
@@ -661,7 +667,7 @@ rule make_expected_cis:
         mem_mb=lambda wildcards, threads: threads * 8 * 1024,
         runtime=60,
     wrapper:
-        "v1.10.0/bio/cooltools/expected_cis"
+        "v1.19.0/bio/cooltools/expected_cis"
 
 
 rule make_eigenvectors_cis:
@@ -684,7 +690,7 @@ rule make_eigenvectors_cis:
         mem_mb=8 * 1024,
         runtime=60,
     wrapper:
-        "v1.10.0/bio/cooltools/eigs_cis"
+        "v1.19.0/bio/cooltools/eigs_cis"
 
 
 rule make_eigenvectors_trans:
@@ -707,7 +713,7 @@ rule make_eigenvectors_trans:
         mem_mb=8 * 1024,
         runtime=60,
     wrapper:
-        "v1.10.0/bio/cooltools/eigs_trans"
+        "v1.19.0/bio/cooltools/eigs_trans"
 
 
 rule make_gc:
@@ -729,7 +735,7 @@ rule make_gc:
         mem_mb=8 * 1024,
         runtime=60,
     wrapper:
-        "v1.10.0/bio/cooltools/genome/gc"
+        "v1.19.0/bio/cooltools/genome/gc"
 
 
 rule make_bins:
@@ -748,7 +754,7 @@ rule make_bins:
     params:
         binsize=lambda wildcards: wildcards["resolution"],
     wrapper:
-        "v1.10.0/bio/cooltools/genome/binnify"
+        "v1.19.0/bio/cooltools/genome/binnify"
 
 
 def download_file(file, local_filename):

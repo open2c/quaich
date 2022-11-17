@@ -1,8 +1,8 @@
 genome: hg38
-path_genome_folder: /Users/ilya/Projects/quaich/resources/genome/
-path_genome_fasta: /Users/ilya/Projects/quaich/resources/genome/hg38/hg38.fa
-chromsizes: /Users/ilya/Projects/quaich/resources/genome/hg38/hg38_chromsizes.txt
-view: /Users/ilya/Projects/quaich/resources/test_view.txt
+path_genome_folder: resources/genome/
+path_genome_fasta: resources/genome/hg38.fa
+chromsizes: resources/genome/hg38_chromsizes.txt
+view: resources/test_view.txt
 
 
 # Samples file with two columns: sample name ("sample") and path/url with cool file ("file").
@@ -101,7 +101,7 @@ call_dots:
             do: True
             extra: ""
         mustache:
-            do: False
+            do: True
             max_dist: 10000000
             extra: "-pt 0.05 -st 0.8"
     resolutions:
