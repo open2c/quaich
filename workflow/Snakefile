@@ -105,7 +105,9 @@ coolfiles_dict = dict(samples_df["local_path"])
 
 for coolfile in coolfiles_dict.keys():
     if coolfile not in coollinks_dict.keys():
-        verify_view_cooler(clr)
+        verify_view_cooler(
+            cooler.Cooler(f"{clr}::resolutions/{config['resolutions'][0]}")
+        )
 
 ### Input bed files
 def get_files(folder, extension):
@@ -825,7 +827,7 @@ rule get_cool_data:
         file=lambda wildcards: coollinks_dict[wildcards.sample],
     run:
         get_file(str(params.file), output[0])
-        verify_view_cooler(output[0])
+        verify_view_cooler(cooler.Cooler(f"{output[0]}::resolutions/{config['resolutions'][0]}")
 
 
 rule get_bedpe_data:
