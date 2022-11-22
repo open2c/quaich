@@ -173,7 +173,7 @@ if config["saddle"]["do"]:
     ]
     saddle_separations = [f"_dist_{mindist}-{mindist*2}" for mindist in saddle_mindists]
 
-if config["pileups"]["do"] or config["pileups"]["bed_pairs"]["do"]:
+if config["pileups"]["do"]:
     shifts = config["pileups"]["shifts"]
     pileup_norms = []
     if shifts > 0:
@@ -430,6 +430,7 @@ def dedup_dots(dots, hiccups_filter=False):
         )
         for res in ress:
             chromdots["Supported_%s" % res] = chromdots["res"] == res
+        # TODO fix!
         tree = spatial.cKDTree(chromdots[["start1", "start2"]])
         drop = []
         for i, j in tree.query_pairs(r=20000):
