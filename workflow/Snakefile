@@ -8,6 +8,7 @@ import pandas as pd
 import bioframe
 from scipy import spatial
 import toolz
+from cooltools.lib.io import read_viewframe_from_file
 
 
 localrules:
@@ -78,6 +79,16 @@ def will_download(link):
     return False if parsed_path.scheme == "" else True
 
 
+def verify_view_cooler(clr):
+    try:
+        view = read_viewframe_from_file(
+            config["view"], verify_cooler=clr, check_sorting=True
+        )
+        return
+    except Exception as e:
+        raise ValueError(f"View not compatible with cooler!") from e
+
+
 samples_df = pd.read_csv(config["samples"], sep="\t", header=0, comment="#")
 samples_df.loc[:, "will_download"] = samples_df.file.apply(will_download)
 samples_df.loc[:, "local_path"] = samples_df.apply(
@@ -91,6 +102,10 @@ coollinks_dict = dict(
     samples_df.query("will_download")["file"]
 )  # dict with cools to be downloaded
 coolfiles_dict = dict(samples_df["local_path"])
+
+for coolfile in coolfiles_dict.keys():
+    if coolfile not in coollinks_dict.keys():
+        verify_view_cooler(clr)
 
 ### Input bed files
 def get_files(folder, extension):
@@ -809,7 +824,8 @@ rule get_cool_data:
     params:
         file=lambda wildcards: coollinks_dict[wildcards.sample],
     run:
-        get_file(str(params.file), str(output))
+        get_file(str(params.file), output[0])
+        verify_view_cooler(output[0])
 
 
 rule get_bedpe_data:
