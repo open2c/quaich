@@ -636,12 +636,12 @@ rule make_insulation:
             int(wildcards.resolution)
         ],
         extra=lambda wildcards: config["insulation"].get("extra", ""),
-    threads: 1
+    threads: 4
     resources:
         mem_mb=32 * 1024,
         runtime=240,
     wrapper:
-        "v1.19.1/bio/cooltools/insulation"
+        "b224c986a05ab52099459e533c5e5144066ee795/bio/cooltools/insulation"
 
 
 rule make_saddles:
