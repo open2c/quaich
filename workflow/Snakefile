@@ -827,7 +827,9 @@ rule get_cool_data:
         file=lambda wildcards: coollinks_dict[wildcards.sample],
     run:
         get_file(str(params.file), output[0])
-        verify_view_cooler(cooler.Cooler(f"{output[0]}::resolutions/{config['resolutions'][0]}")
+        verify_view_cooler(
+            cooler.Cooler(f"{output[0]}::resolutions/{config['resolutions'][0]}")
+        )
 
 
 rule get_bedpe_data:
