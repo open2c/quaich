@@ -641,7 +641,7 @@ rule make_insulation:
         mem_mb=32 * 1024,
         runtime=240,
     wrapper:
-        "b224c986a05ab52099459e533c5e5144066ee795/bio/cooltools/insulation"
+        "master/bio/cooltools/insulation"
 
 
 rule make_saddles:
