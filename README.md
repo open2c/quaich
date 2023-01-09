@@ -9,36 +9,39 @@
 
 [Snakemake](https://snakemake.readthedocs.io/en/stable/) is a workflow manager for reproducible and scalable data analyses, based around the concept of rules. Rules used in `Quaich` are defined in the [Snakefile](https://github.com/open2c/quaich/blob/master/workflow/Snakefile). `Quaich` then uses a [yaml config file](https://github.com/open2c/quaich/blob/master/config/config.yaml) to specify which rules to run, and which parameters to use for those rules.
 
-Each rule in the `Quaich` Snakefile specifies inputs, outputs, resources, and threads. The best values for resources and threads depend on whether `quaich` is run locally or on a cluster. Outputs of one rule are often used as inputs to another. For example, the rule `make_expected` calls `cooltools compute-expected` on a mcool for a set of regions at specified resolutions to output tsv. This output is then used in make_saddles, make_pileups, and call_loops_cooltools.
+Each rule in the `Quaich` Snakefile specifies inputs, outputs, resources, and threads. The best values for resources and threads depend on whether `quaich` is run locally or on a cluster. Outputs of one rule are often used as inputs to another. For example, the rule `make_expected_cis` calls `cooltools compute-expected` on a mcool for a set of regions at specified resolutions to output tsv. This output is then used in make_saddles, make_pileups, and call_loops_cooltools. For reprodcibility and easy setup wherever possible, the rules use [snakemake wrappers](https://github.com/snakemake/snakemake-wrappers) instead of using shell/python code directly. This means every rule will have its own dedicated conda environment that is defined as part of the wrapper, and it is created the first time the pipeline is run.
+
 ```python
-rule make_expected:
+rule make_expected_cis:
     input:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
-        regions=lambda wildcards: config["regions"],
+        view=lambda wildcards: config["view"],
     output:
         f"{expected_folder}/{{sample}}_{{resolution,[0-9]+}}.expected.tsv",
-    threads: 4 
+    params:
+        extra="--ignore-diags 0",
+    threads: 4
     resources:
         mem_mb=lambda wildcards, threads: threads * 8 * 1024,
         runtime=60,
-    shell:
-        "cooltools compute-expected -p {threads} {input.cooler}::resolutions/{wildcards.resolution} --regions {input.regions} --ignore-diags 0 -o {output}"
+    wrapper:
+        "v1.19.1/bio/cooltools/expected_cis"
 ```
 
 `Quaich` groups similar rules together in config.yaml, which is read as a python dictionary by the Snakefile. Parameters for individual rules are passed as indented (key, value) pairs. For example, call_dots configures three rules, call_loops_cooltools,  call_loops_chromosight, and call_loops_mustache. The parameters for each specific rule is underneath, the shared parameters are below (e.g. resolutions, and samples).  call_loops_cooltools has parameters do, max_dist, fdr. `Do` always specifies if the workflow should attempt to produce the output for this rule.
-``` call_dots:
+```yaml
+call_dots:
     methods:
         cooltools:
-            do: True
-            max_dist: 10000000
-            fdr: 0.02
-            arguments: ""
+            do: False
+            extra: "--max-loci-separation 10000000 --fdr 0.02"
         chromosight:
-            do: True
+            do: False
+            extra: ""
         mustache:
-            do: True
+            do: False
             max_dist: 10000000
-            arguments: "-pt 0.05 -st 0.8"
+            extra: "-pt 0.05 -st 0.8"
     resolutions:
         - 10000
     samples:
