@@ -43,6 +43,8 @@ boundary_folder: results/boundaries
 # They are phased using GC content whcih is automatically calculated from the genome .fastqs
 eigenvector:
     do: True
+    cis: True
+    trans: True
     resolution_limits:
         - 50000
         - 1000000
@@ -60,6 +62,7 @@ saddle:
     range: "--qrange 0.01 0.99 "
     extra: "--strength"
 
+# Parameters for pentads, another way to average compartments
 # Described in https://doi.org/10.1186/s12859-022-04654-6, but reimplemented using coolpuppy here
 pentads:
     do: True
@@ -88,6 +91,7 @@ pileups:
     shifts: 0
     expected: True
     ooe: True #Only applies when expected is True
+    arguments: # Different modes of pileups that can be applied to different annotation
                # .bed files, relationship defined in samples_annotations_combinations file above
         distal: "--maxdist 1000000"
         by_distance: "--by_distance"
@@ -112,6 +116,7 @@ insulation:
             - 50000
             - 100000
     extra: '--chunksize 1000000000 --threshold Li' # Choose between a specific float, Li or Otsu, see https://github.com/open2c/open2c_examples/blob/master/Insulation_and_boundaries.ipynb
+
 
 # Parameters for calling dots/loops, using different methods
 call_dots:
@@ -142,6 +147,7 @@ compare_boundaries:
     pileup: True
 
 # Combine neighbouring strong insulation score boundaries into TADs
+call_TADs: 
     do: False
     resolutions:
         10000: # Which window sizes to use for which resolution
