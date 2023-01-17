@@ -45,6 +45,7 @@ eigenvector:
     resolution_limits:
         - 50000
         - 1000000
+    save_compartment_beds: True
 saddle:
     do: True
     bins:
@@ -54,6 +55,19 @@ saddle:
         - 102400000
     range: "--qrange 0.01 0.99 "
     extra: "--strength"
+
+pentads:
+    do: True
+    do_diff: True
+    data_resolution: 100000
+    eigenvector_resolution: 1000000
+    groupby:
+        - chrom1
+    norms:
+        - expected
+    modes:
+        - local
+        - distal
 
 pileups:
     do: True
@@ -106,6 +120,7 @@ call_dots:
             extra: "-pt 0.05 -st 0.8"
     resolutions:
         - 10000
+    pileup: True
     samples:
         - test_cool
 
@@ -115,6 +130,7 @@ compare_boundaries:
         - test_cool
         - test_cool
     fold_change_threshold: 5
+    pileup: True
 
 call_TADs: # By just combining strong boundaries
     do: True
@@ -126,5 +142,6 @@ call_TADs: # By just combining strong boundaries
             - 500000
             - 1000000
     max_tad_length: 1500000
+    pileup: True
     samples:
         - test_cool

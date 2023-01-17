@@ -1,0 +1,12 @@
+name: hmm_bigwigs_env
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - python >=3.8,<3.11
+  - dataclasses
+  - pip
+  - pip:
+    - pomegranate
+    - https://github.com/phlya/hmm_bigwigs/archive/refs/heads/master.zip
