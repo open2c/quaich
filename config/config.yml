@@ -1,9 +1,15 @@
+# Setup the genome and view to use for analyses
 genome: hg38
 path_genome_folder: resources/genome/
 path_genome_fasta: resources/genome/hg38.fa
 chromsizes: resources/genome/hg38_chromsizes.txt
 view: resources/test_view.txt
 
+# List of all resolutions to use
+resolutions:
+    - 1000000
+# Resolutions coarser than this will not be used
+ignore_resolutions_more_than: 10000000
 
 # Samples file with two columns: sample name ("sample") and path/url with cool file ("file").
 # If it's URL, it will be downloaded. If the file is already downloaded it will not be overwritten.
@@ -33,19 +39,17 @@ tad_folder: results/tads
 loop_folder: results/loops
 boundary_folder: results/boundaries
 
-resolutions:
-    - 1000000
-    - 100000
-    - 10000
-    - 1000
-ignore_resolutions_more_than: 1000000
-
+# Parameters for calculation of the eigenvectors (cooltools eigs-cis or eigs-trans)
+# They are phased using GC content whcih is automatically calculated from the genome .fastqs
 eigenvector:
     do: True
     resolution_limits:
         - 50000
         - 1000000
-    save_compartment_beds: True
+    save_compartment_beds: True # If True, will run a simple HMM to save a .bed file
+                                # with coordinates of A and B compartments
+
+# Parameters for saddles - a way to quantify global compartment structure (cooltools saddle)
 saddle:
     do: True
     bins:
@@ -56,6 +60,7 @@ saddle:
     range: "--qrange 0.01 0.99 "
     extra: "--strength"
 
+# Described in https://doi.org/10.1186/s12859-022-04654-6, but reimplemented using coolpuppy here
 pentads:
     do: True
     do_diff: True
@@ -69,6 +74,7 @@ pentads:
         - local
         - distal
 
+# Parameters for pileups using coolpuppy
 pileups:
     do: True
     resolution_limits:
@@ -82,7 +88,7 @@ pileups:
     shifts: 0
     expected: True
     ooe: True #Only applies when expected is True
-    arguments:
+               # .bed files, relationship defined in samples_annotations_combinations file above
         distal: "--maxdist 1000000"
         by_distance: "--by_distance"
         local: "--local"
@@ -93,6 +99,7 @@ pileups:
         by_window_short_range: "--by_window --subset 1000 --maxdist 2000000"
         by_window_long_range:  "--by_window --subset 1000 --mindist 2000000"
 
+# Parameters to calculate insulation score and how to threshold (cooltools insulation)
 insulation:
     do: True
     resolutions:
@@ -106,6 +113,7 @@ insulation:
             - 100000
     extra: '--chunksize 1000000000 --threshold Li' # Choose between a specific float, Li or Otsu, see https://github.com/open2c/open2c_examples/blob/master/Insulation_and_boundaries.ipynb
 
+# Parameters for calling dots/loops, using different methods
 call_dots:
     methods:
         cooltools:
@@ -124,6 +132,7 @@ call_dots:
     samples:
         - test_cool
 
+# Find differential boundaries between pairs of samples using a simple presence/absence or FC threshold for boundary strength
 compare_boundaries:
     do: False
     samples:
@@ -133,6 +142,7 @@ compare_boundaries:
     pileup: True
 
 # Combine neighbouring strong insulation score boundaries into TADs
+    do: False
     resolutions:
         10000: # Which window sizes to use for which resolution
             - 50000
