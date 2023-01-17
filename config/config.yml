@@ -132,8 +132,7 @@ compare_boundaries:
     fold_change_threshold: 5
     pileup: True
 
-call_TADs: # By just combining strong boundaries
-    do: True
+# Combine neighbouring strong insulation score boundaries into TADs
     resolutions:
         10000: # Which window sizes to use for which resolution
             - 50000
