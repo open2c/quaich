@@ -106,7 +106,7 @@ coolfiles_dict = dict(samples_df["local_path"])
 for coolfile in coolfiles_dict.keys():
     if coolfile not in coollinks_dict.keys():
         verify_view_cooler(
-            cooler.Cooler(f"{clr}::resolutions/{config['resolutions'][0]}")
+            cooler.Cooler(f"{coolfile}::resolutions/{config['resolutions'][0]}")
         )
 
 ### Input bed files
