@@ -101,16 +101,26 @@ coolfiles_dict = dict(samples_df["local_path"])
 
 # Setting up pairwise comparisons
 sample_pairs = []
-for name, group in samples_df.groupby(config["fields_to_match"]):
-    for sample1, sample2 in itertools.permutations(group.index, 2):
-        if np.all(
-            samples_df.loc[sample1, list(config["fields_to_differ"].keys())].to_numpy()
-            != np.array(list(config["fields_to_differ"].values()))
-        ) and np.all(
-            samples_df.loc[sample2, list(config["fields_to_differ"].keys())].to_numpy()
-            == np.array(list(config["fields_to_differ"].values()))
-        ):
-            sample_pairs.append(f"{sample1}_vs_{sample2}")
+
+if config["fields_to_differ"] is not None:
+    for name, group in samples_df.groupby(
+        lambda x: config["fields_to_match"]
+        if config["fields_to_match"] is not None
+        else True
+    ):
+        for sample1, sample2 in itertools.permutations(group.index, 2):
+            if np.all(
+                samples_df.loc[
+                    sample1, list(config["fields_to_differ"].keys())
+                ].to_numpy()
+                != np.array(list(config["fields_to_differ"].values()))
+            ) and np.all(
+                samples_df.loc[
+                    sample2, list(config["fields_to_differ"].keys())
+                ].to_numpy()
+                == np.array(list(config["fields_to_differ"].values()))
+            ):
+                sample_pairs.append(f"{sample1}_vs_{sample2}")
 
 # for coolfile in coolfiles_dict.values():
 #     if coolfile not in coollinks_dict.values():
@@ -259,8 +269,8 @@ insulation = (
 
 diff_boundaries = (
     expand(
-        f"{boundary_folder}/Insulation_{config['compare_boundaries']['samples'][0]}_not_"
-        f"{config['compare_boundaries']['samples'][1]}_{{insul_res_win}}.bed",
+        f"{boundary_folder}/Insulation_{{sample_pair}}_{{insul_res_win}}.bed",
+        sample_pair=sample_pairs,
         insul_res_win=insul_res_win_comb,
     )
     if config["compare_boundaries"]["do"]
@@ -281,8 +291,8 @@ diff_boundaries_pileups = (
 
 tads = (
     expand(
-        f"{tad_folder}/TADs_{{sampleTADs}}_{{tad_res_win}}.bed",
-        sampleTADs=config["call_TADs"]["samples"],
+        f"{tad_folder}/TADs_{{sample}}_{{tad_res_win}}.bed",
+        sample=samples,
         tad_res_win=tad_res_win,
     )
     if config["call_TADs"]["do"]
@@ -384,6 +394,7 @@ compartments = (
     else []
 )
 
+# Pentads for all samples based on compartments from all samples - for now all combinations!
 pentads = (
     expand(
         f"{eigenvectors_folder}/pentads/{{sample}}_{config['pentads']['data_resolution']}_over_compartments_{{sample_ref}}_{config['pentads']['eigenvector_resolution']}_{{norm}}_pentads.clpy",
@@ -395,6 +406,8 @@ pentads = (
     if config["pentads"]["do"]
     else []
 )
+
+# Differential pentads calculated using compartments from sample2
 diff_pentads = []
 if config["pentads"]["do_diff"]:
     for sample_pair in sample_pairs:

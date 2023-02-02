@@ -15,6 +15,15 @@ ignore_resolutions_more_than: 10000000
 # If it's URL, it will be downloaded. If the file is already downloaded it will not be overwritten.
 # The downloaded file will be stored as {coolers_folder}/{sample}.mcool
 samples: config/samples.tsv
+# Setting up pairwise comparisons of samples
+# We just have two samples, so no need to ensure certain fields match, so we set this
+# setting to null
+fields_to_match: null
+# To compare by cell type, we list the name of the column with cell type from the
+# samples.tsv file, and indicate which cell type we consider as reference for the
+# comparisons
+fields_to_differ:
+    cell_type: hESCs
 # Annotations file with two columns: annotation name ("bedname") and "file" (URLs or local file)
 # Downloaded bed files will be stored in beds_folder
 annotations: config/annotations.tsv
