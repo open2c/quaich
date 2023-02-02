@@ -118,6 +118,7 @@ for name, group in samples_df.groupby(config["fields_to_match"]):
 #             cooler.Cooler(f"{coolfile}::resolutions/{config['resolutions'][0]}")
 #         )
 
+
 ### Input bed files
 
 
