@@ -57,8 +57,8 @@ eigenvector:
     resolution_limits:
         - 50000
         - 1000000
-    save_compartment_beds: True # If True, will run a simple HMM to save a .bed file
-                                # with coordinates of A and B compartments
+    save_compartment_beds: False # If True, will run a simple HMM to save a .bed file
+                                 # with coordinates of A and B compartments
 
 # Parameters for saddles - a way to quantify global compartment structure (cooltools saddle)
 saddle:
@@ -74,8 +74,8 @@ saddle:
 # Parameters for pentads, another way to average compartments
 # Described in https://doi.org/10.1186/s12859-022-04654-6, but reimplemented using coolpuppy here
 pentads:
-    do: True
-    do_diff: True
+    do: False
+    do_diff: False
     data_resolution: 100000
     eigenvector_resolution: 1000000
     groupby:
