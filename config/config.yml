@@ -45,7 +45,7 @@ eigenvectors_folder: results/eigenvectors
 saddles_folder: results/saddles
 insulation_folder: results/insulation
 tad_folder: results/tads
-loop_folder: results/loops
+dot_folder: results/dots
 boundary_folder: results/boundaries
 
 # Parameters for calculation of the eigenvectors (cooltools eigs-cis or eigs-trans)
@@ -143,8 +143,7 @@ call_dots:
     resolutions:
         - 10000
     pileup: True
-    samples:
-        - test_cool
+
 
 # Find differential boundaries between pairs of samples using a simple presence/absence or FC threshold for boundary strength
 compare_boundaries:
@@ -164,5 +163,4 @@ call_TADs:
             - 1000000
     max_tad_length: 1500000
     pileup: True
-    samples:
-        - test_cool
+

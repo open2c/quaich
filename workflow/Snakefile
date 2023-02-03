@@ -19,7 +19,7 @@ localrules:
     merge_dots_across_resolutions,
     make_differential_insulation,
     make_tads,
-    call_loops_mustache,
+    call_dots_mustache,
     get_bed_data,
     get_cool_data,
 
@@ -53,7 +53,7 @@ insulation_folder = path.normpath(
 tad_folder = path.normpath(config.get("tad_folder", path.join(project_folder, "tads")))
 tad_folder_name = path.basename(tad_folder)
 loop_folder = path.normpath(
-    config.get("loop_folder", path.join(project_folder, "loops"))
+    config.get("dot_folder", path.join(project_folder, "dots"))
 )
 loop_folder_name = path.basename(loop_folder)
 boundary_folder = path.normpath(
@@ -86,7 +86,8 @@ def will_download(link):
     return False if parsed_path.scheme == "" else True
 
 
-samples_df = pd.read_csv(config["samples"], sep="\t", header=0, comment="#")
+samples_df = pd.read_csv(config["samples"], sep="\t", header=0, comment="#", dtype={'do_dots':bool})
+samples_df = samples_df.fillna(value=False)
 samples_df.loc[:, "will_download"] = samples_df.file.apply(will_download)
 samples_df.loc[:, "local_path"] = samples_df.apply(
     lambda x: f"{coolers_folder}/{x['sample']}.mcool" if x.will_download else x["file"],
@@ -293,42 +294,44 @@ diff_boundaries_pileups = (
 tads = (
     expand(
         f"{tad_folder}/TADs_{{sample}}_{{tad_res_win}}.bed",
-        sample=samples,
+        sample=samples_df.index[samples_df['do_tads']],
         tad_res_win=tad_res_win,
     )
     if config["call_TADs"]["do"]
     else []
 )
 
+
 tads_pileups = (
     expand(
         f"{pileups_folder}/{tad_folder_name}/{{sample}}-{{resolution}}_over_TADs_{{sampleTADs}}_{{tad_res_win}}_{{norm}}_local_rescaled.clpy",
         sample=samples,
         resolution=pileup_resolutions,
-        sampleTADs=config["call_TADs"]["samples"],
+        sampleTADs=samples_df.index[samples_df['do_tads']],
         tad_res_win=tad_res_win,
         norm=pileup_norms,
     )
     if config["call_TADs"]["do"] and config["call_TADs"]["pileup"]
     else []
 )
+
 dot_methods = [
     m for m in config["call_dots"]["methods"] if config["call_dots"]["methods"][m]["do"]
 ]
 if dot_methods:
-    loops = expand(
-        f"{loop_folder}/merged_resolutions/Loops_{{method}}_{{sampleLoops}}.bedpe",
+    dots = expand(
+        f"{loop_folder}/merged_resolutions/Dots_{{method}}_{{sampleDots}}.bedpe",
         method=dot_methods,
-        sampleLoops=config["call_dots"]["samples"],
+        sampleDots=samples_df.index[samples_df['do_dots']],
     )
 
-    loops_pileups = (
+    dots_pileups = (
         expand(
-            f"{pileups_folder}/{loop_folder_name}/{{sample}}-{{resolution}}_over_Loops_{{method}}_{{sampleLoops}}_{{norm}}_{{mode}}.clpy",
+            f"{pileups_folder}/{loop_folder_name}/{{sample}}-{{resolution}}_over_Dots_{{method}}_{{sampleDots}}_{{norm}}_{{mode}}.clpy",
             sample=samples,
             resolution=pileup_resolutions,
             method=dot_methods,
-            sampleLoops=config["call_dots"]["samples"],
+            sampleDots=samples_df.index[samples_df['do_dots']],
             norm=pileup_norms,
             mode=["distal", "by_distance"],
         )
@@ -336,10 +339,10 @@ if dot_methods:
         else []
     )
 else:
-    loops = []
-    loops_pileups = []
+    dots = []
+    dots_pileups = []
 
-for file in loops:
+for file in dots:
     name = path.splitext(path.basename(file))[0]
     bedfiles_dict[name] = file
     bedtype_dict[name] = "bedpe"
@@ -427,8 +430,8 @@ rule all:
         lambda wildcards: diff_boundaries_pileups,
         lambda wildcards: tads,
         lambda wildcards: tads_pileups,
-        lambda wildcards: loops,
-        lambda wildcards: loops_pileups,
+        lambda wildcards: dots,
+        lambda wildcards: dots_pileups,
         lambda wildcards: beds_pileups,
         lambda wildcards: saddles,
         lambda wildcards: compartments,

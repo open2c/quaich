@@ -36,7 +36,7 @@ def dedup_dots(dots, hiccups_filter=False):
         ]
         print(
             l - len(deduped),
-            "loops filtered out as unreliable %s resolution calls" % ress[0],
+            "dots filtered out as unreliable %s resolution calls" % ress[0],
         )
     return deduped
 
@@ -51,11 +51,11 @@ def read_dots(f):
 rule merge_dots_across_resolutions:
     input:
         dots=lambda wildcards,: [
-            f"{loop_folder}/Loops_{{method}}_{{sample}}_{resolution}.bedpe"
+            f"{loop_folder}/Dots_{{method}}_{{sample}}_{resolution}.bedpe"
             for resolution in config["call_dots"]["resolutions"]
         ],
     output:
-        f"{loop_folder}/merged_resolutions/Loops_{{method}}_{{sample}}.bedpe",
+        f"{loop_folder}/merged_resolutions/Dots_{{method}}_{{sample}}.bedpe",
     threads: 1
     resources:
         mem_mb=lambda wildcards, threads: 1024,
@@ -68,13 +68,13 @@ rule merge_dots_across_resolutions:
         dots.to_csv(output[0], sep="\t", header=False, index=False)
 
 
-rule call_loops_cooltools:
+rule call_dots_cooltools:
     input:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
         expected=f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
         view=lambda wildcards: config["view"],
     output:
-        f"{loop_folder}/Loops_cooltools_{{sample}}_{{resolution,[0-9]+}}.bedpe",
+        f"{loop_folder}/Dots_cooltools_{{sample}}_{{resolution,[0-9]+}}.bedpe",
     threads: 4
     params:
         extra=lambda wildcards: config["call_dots"]["methods"]["cooltools"]["extra"],
@@ -85,37 +85,37 @@ rule call_loops_cooltools:
         "v1.21.2/bio/cooltools/dots"
 
 
-rule call_loops_chromosight:
+rule call_dots_chromosight:
     input:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
     output:
-        bedpe=f"{loop_folder}/Loops_chromosight_{{sample}}_{{resolution,[0-9]+}}.bedpe",
-        json=f"{loop_folder}/Loops_chromosight_{{sample}}_{{resolution,[0-9]+}}.json",
+        bedpe=f"{loop_folder}/Dots_chromosight_{{sample}}_{{resolution,[0-9]+}}.bedpe",
+        json=f"{loop_folder}/Dots_chromosight_{{sample}}_{{resolution,[0-9]+}}.json",
     threads: 4
     resources:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
     conda:
-        "envs/chromosight_env.yml"
+        "../envs/chromosight_env.yml"
     shell:
-        f"chromosight detect --pattern loops --no-plotting -t {{threads}} {{input.cooler}}::resolutions/{{wildcards.resolution}} {loop_folder}/Loops_chromosight_{{wildcards.sample}}_{{wildcards.resolution}} && "
-        f"mv {loop_folder}/Loops_chromosight_{{wildcards.sample}}_{{wildcards.resolution}}.tsv {{output.bedpe}}"
+        f"chromosight detect --pattern loops --no-plotting -t {{threads}} {{input.cooler}}::resolutions/{{wildcards.resolution}} {loop_folder}/Dots_chromosight_{{wildcards.sample}}_{{wildcards.resolution}} && "
+        f"mv {loop_folder}/Dots_chromosight_{{wildcards.sample}}_{{wildcards.resolution}}.tsv {{output.bedpe}}"
 
 
-rule call_loops_mustache:
+rule call_dots_mustache:
     input:
-        f"{loop_folder}/Loops_mustache_{{sample}}_{{resolution}}.bedpe_tmp",
+        f"{loop_folder}/Dots_mustache_{{sample}}_{{resolution}}.bedpe_tmp",
     output:
-        f"{loop_folder}/Loops_mustache_{{sample}}_{{resolution,[0-9]+}}.bedpe",
+        f"{loop_folder}/Dots_mustache_{{sample}}_{{resolution,[0-9]+}}.bedpe",
     shell:
         """TAB=$(printf '\t') && cat {input} | sed "1s/.*/chrom1${{TAB}}start1${{TAB}}end1${{TAB}}chrom2${{TAB}}start2${{TAB}}end2${{TAB}}FDR${{TAB}}detection_scale/" > {output}"""
 
 
-rule _call_loops_mustache:
+rule _call_dots_mustache:
     input:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
     output:
-        f"{loop_folder}/Loops_mustache_{{sample}}_{{resolution,[0-9]+}}.bedpe_tmp",
+        f"{loop_folder}/Dots_mustache_{{sample}}_{{resolution,[0-9]+}}.bedpe_tmp",
     threads: 4
     params:
         args=config["call_dots"]["methods"]["mustache"]["extra"],
@@ -124,7 +124,7 @@ rule _call_loops_mustache:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
     conda:
-        "envs/mustache_env.yml"
+        "../envs/mustache_env.yml"
     shell:
         f"python3 -m mustache -p {{threads}} -f {{input.cooler}} -r {{wildcards.resolution}} "
         f"-d {{params.dist}} {{params.args}} -o {{output}}"
