@@ -15,6 +15,7 @@ from scipy import spatial
 localrules:
     all,
     make_pentads,
+    make_diff_pentads,
     merge_dots_across_resolutions,
     make_differential_insulation,
     make_tads,

@@ -74,8 +74,8 @@ saddle:
 # Parameters for pentads, another way to average compartments
 # Described in https://doi.org/10.1186/s12859-022-04654-6, but reimplemented using coolpuppy here
 pentads:
-    do: False
-    do_diff: False
+    do: True
+    do_diff: True
     data_resolution: 100000
     eigenvector_resolution: 1000000
     groupby:
@@ -124,7 +124,7 @@ insulation:
         10000:
             - 50000
             - 100000
-    extra: '--chunksize 1000000000 --threshold Li' # Choose between a specific float, Li or Otsu, see https://github.com/open2c/open2c_examples/blob/master/Insulation_and_boundaries.ipynb
+    extra: '--chunksize 1000000000 --threshold Li --ignore-diags 2' # Choose between a specific float, Li or Otsu, see https://github.com/open2c/open2c_examples/blob/master/Insulation_and_boundaries.ipynb
 
 
 # Parameters for calling dots/loops, using different methods
@@ -148,10 +148,7 @@ call_dots:
 
 # Find differential boundaries between pairs of samples using a simple presence/absence or FC threshold for boundary strength
 compare_boundaries:
-    do: False
-    samples:
-        - test_cool
-        - test_cool
+    do: True
     fold_change_threshold: 5
     pileup: True
 

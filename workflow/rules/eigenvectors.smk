@@ -1,6 +1,7 @@
 rule make_compartments:
     input:
         bigwig=f"{eigenvectors_folder}/{{sample}}_{{resolution}}_eigenvectors.{{mode}}.bw",
+        view=lambda wildcards: config["view"],
     output:
         compartments=f"{eigenvectors_folder}/compartments/{{sample}}_{{resolution,[0-9]+}}_compartments.{{mode}}.bed",
     threads: 1
@@ -10,7 +11,7 @@ rule make_compartments:
     conda:
         "../envs/hmm_bigwigs_env.yml"
     shell:
-        f"bigwig_hmm.py -i {{input.bigwig}} -g {genome} -n 2 -o {{output.compartments}}"
+        f"bigwig_hmm.py -i {{input.bigwig}} --view {{input.view}} -n 2 -o {{output.compartments}}"
 
 
 rule make_eigenvectors_cis:

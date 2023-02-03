@@ -1,6 +1,5 @@
 from os import path
 
-
 rule make_diff_pentads:
     input:
         pentads1=lambda wildcards: f"{eigenvectors_folder}/pentads/{{sample1}}_{config['pentads']['data_resolution']}_over_compartments_{{sample_ref}}_{config['pentads']['eigenvector_resolution']}_{{norm}}_pentads.clpy",
