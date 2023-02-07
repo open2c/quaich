@@ -10,7 +10,7 @@ rule make_differential_insulation:
             f"{insulation_folder}/{{sampleKO}}_{{resolution}}.insulation.tsv"
         ),
     output:
-        f"{boundary_folder}/Insulation_{{sampleKO}}_vs_{{sampleWT}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.bed",
+        f"{boundary_folder}/Diff_boundaries_{{sampleKO}}_vs_{{sampleWT}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.bed",
     threads: 1
     resources:
         mem_mb=1024,
@@ -56,6 +56,23 @@ rule make_tads:
             (tads["end"] - tads["start"]) <= config["call_TADs"]["max_tad_length"]
         ].reset_index(drop=True)
         tads.to_csv(output[0], header=False, index=False, sep="\t")
+
+
+rule save_strong_boundaries:
+    input:
+        insulation=(f"{insulation_folder}/{{sample}}_{{resolution}}.insulation.tsv"),
+    output:
+        f"{boundary_folder}/Boundaries_{{sample}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.bed",
+    threads: 1
+    resources:
+        mem_mb=1024,
+        runtime=60,
+    run:
+        ins = pd.read_csv(input.insulation, sep="\t")
+        boundaries = ins.loc[
+            ins[f"is_boundary_{wildcards.window}"], ["chrom", "start", "end"]
+        ]
+        boundaries.to_csv(output[0], header=False, index=False, sep="\t")
 
 
 rule make_insulation:

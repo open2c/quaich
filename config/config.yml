@@ -117,21 +117,6 @@ pileups:
         by_window_short_range: "--by_window --subset 1000 --maxdist 2000000"
         by_window_long_range:  "--by_window --subset 1000 --mindist 2000000"
 
-# Parameters to calculate insulation score and how to threshold (cooltools insulation)
-insulation:
-    do: True
-    resolutions:
-        1000:
-            - 3000 # What window sizes to do for what resolution
-            - 5000
-            - 10000
-            - 25000
-        10000:
-            - 50000
-            - 100000
-    extra: '--chunksize 1000000000 --threshold Li --ignore-diags 2' # Choose between a specific float, Li or Otsu, see https://github.com/open2c/open2c_examples/blob/master/Insulation_and_boundaries.ipynb
-
-
 # Parameters for calling dots/loops, using different methods
 call_dots:
     methods:
@@ -149,6 +134,23 @@ call_dots:
         - 10000
     pileup: True
 
+# Parameters to calculate insulation score and how to threshold (cooltools insulation)
+insulation:
+    do: True
+    resolutions:
+        1000:
+            - 3000 # What window sizes to do for what resolution
+            - 5000
+            - 10000
+            - 25000
+        10000:
+            - 50000
+            - 100000
+    extra: '--chunksize 1000000000 --threshold Li --ignore-diags 2' # For the threshold,
+                                                                    # choose between a specific float, Li or Otsu,
+                                                                    # see https://github.com/open2c/open2c_examples/blob/master/Insulation_and_boundaries.ipynb
+    pileup: True # Whether to pileup thresholded boundaries
+
 
 # Find differential boundaries between pairs of samples using a simple presence/absence or FC threshold for boundary strength
 compare_boundaries:
@@ -158,13 +160,11 @@ compare_boundaries:
 
 # Combine neighbouring strong insulation score boundaries into TADs
 call_TADs: 
-    do: False
+    do: True
     resolutions:
-        10000: # Which window sizes to use for which resolution
+        10000: # What window sizes to do for what resolution
             - 50000
             - 100000
-            - 200000
-            - 500000
             - 1000000
     max_tad_length: 1500000
     pileup: True

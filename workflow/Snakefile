@@ -216,19 +216,15 @@ elif config["call_TADs"]["do"]:
 
 if config["insulation"]["do"]:
     insul_res_win_comb = []
-    insul_res_win_arg = {}
     for resolution in config["insulation"]["resolutions"]:
-        insul_res_win_arg[resolution] = " ".join(
-            [str(res) for res in config["insulation"]["resolutions"][resolution]]
-        )
         for win in config["insulation"]["resolutions"][resolution]:
             insul_res_win_comb.append(f"{resolution}_{win}")
 
 if config["call_TADs"]["do"]:
-    tad_res_win = []
+    tad_res_win_comb = []
     for resolution in config["call_TADs"]["resolutions"]:
         for win in config["call_TADs"]["resolutions"][resolution]:
-            tad_res_win.append(f"{resolution}_{win}")
+            tad_res_win_comb.append(f"{resolution}_{win}")
 
 # chroms = cooler.Cooler(f'{coolers_folder}/{coolfiles[0]}::resolutions/{resolutions[0]}').chroms()[:]
 
@@ -253,28 +249,58 @@ insulation = (
     expand(
         f"{insulation_folder}/{{sample}}_{{resolution}}.insulation.tsv",
         sample=samples,
-        resolution=insul_res_win_arg.keys(),
+        resolution=config["insulation"]["resolutions"].keys(),
     )
     if (config["insulation"]["do"] or config["call_TADs"]["do"])
     else []
 )
 
+boundaries = (
+    expand(
+        f"{boundary_folder}/Boundaries_{{sample}}_{{resolution_window}}.bed",
+        sample=samples,
+        resolution_window=insul_res_win_comb,
+    )
+    if (config["insulation"]["do"] or config["call_TADs"]["do"])
+    else []
+)
+
+boundaries_pileups = (
+    expand(
+        f"{pileups_folder}/{boundary_folder_name}/{{sample}}-{{resolution}}_over_Boundaries_{{sample}}_{{resolution_window}}_{{norm}}_local.clpy",
+        sample=samples,
+        resolution=pileup_resolutions,
+        resolution_window=insul_res_win_comb,
+        norm=pileup_norms,
+    )
+    if (config["insulation"]["do"] and config["insulation"]["pileup"])
+    else []
+)
+
 diff_boundaries = (
     expand(
-        f"{boundary_folder}/Insulation_{{sample_pair}}_{{insul_res_win}}.bed",
-        sample_pair=sample_pairs,
-        insul_res_win=insul_res_win_comb,
+        f"{boundary_folder}/Diff_boundaries_{{comparison}}_{{resolution_window}}.bed",
+        comparison=sample_pairs
+        + [
+            f"{pair.split('_vs_')[1]}_vs_{pair.split('_vs_')[0]}"
+            for pair in sample_pairs
+        ],  # Adding comparisons in the opposite direction too
+        resolution_window=insul_res_win_comb,
     )
     if config["compare_boundaries"]["do"]
     else []
 )
 diff_boundaries_pileups = (
     expand(
-        f"{pileups_folder}/{boundary_folder_name}/{{sample}}-{{resolution}}_over_Insulation_{{comparisons}}_{{insul_res_win}}_{{norm}}_local.clpy",
+        f"{pileups_folder}/{boundary_folder_name}/{{sample}}-{{resolution}}_over_Diff_boundaries_{{comparison}}_{{resolution_window}}_{{norm}}_local.clpy",
         sample=samples,
         resolution=pileup_resolutions,
-        comparisons=sample_pairs,
-        insul_res_win=insul_res_win_comb,
+        comparison=sample_pairs
+        + [
+            f"{pair.split('_vs_')[1]}_vs_{pair.split('_vs_')[0]}"
+            for pair in sample_pairs
+        ],  # Adding comparisons in the opposite direction too
+        resolution_window=insul_res_win_comb,
         norm=pileup_norms,
     )
     if config["compare_boundaries"]["do"] and config["compare_boundaries"]["pileup"]
@@ -285,7 +311,7 @@ tads = (
     expand(
         f"{tad_folder}/TADs_{{sample}}_{{tad_res_win}}.bed",
         sample=samples_df.index[samples_df["do_tads"]],
-        tad_res_win=tad_res_win,
+        tad_res_win=tad_res_win_comb,
     )
     if config["call_TADs"]["do"]
     else []
@@ -298,7 +324,7 @@ tads_pileups = (
         sample=samples,
         resolution=pileup_resolutions,
         sampleTADs=samples_df.index[samples_df["do_tads"]],
-        tad_res_win=tad_res_win,
+        tad_res_win=tad_res_win_comb,
         norm=pileup_norms,
     )
     if config["call_TADs"]["do"] and config["call_TADs"]["pileup"]
