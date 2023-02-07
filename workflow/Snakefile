@@ -52,9 +52,7 @@ insulation_folder = path.normpath(
 )
 tad_folder = path.normpath(config.get("tad_folder", path.join(project_folder, "tads")))
 tad_folder_name = path.basename(tad_folder)
-loop_folder = path.normpath(
-    config.get("dot_folder", path.join(project_folder, "dots"))
-)
+loop_folder = path.normpath(config.get("dot_folder", path.join(project_folder, "dots")))
 loop_folder_name = path.basename(loop_folder)
 boundary_folder = path.normpath(
     config.get("boundary_folder", path.join(project_folder, "boundaries"))
@@ -86,7 +84,9 @@ def will_download(link):
     return False if parsed_path.scheme == "" else True
 
 
-samples_df = pd.read_csv(config["samples"], sep="\t", header=0, comment="#", dtype={'do_dots':bool})
+samples_df = pd.read_csv(
+    config["samples"], sep="\t", header=0, comment="#", dtype={"do_dots": bool}
+)
 samples_df = samples_df.fillna(value=False)
 samples_df.loc[:, "will_download"] = samples_df.file.apply(will_download)
 samples_df.loc[:, "local_path"] = samples_df.apply(
@@ -177,21 +177,9 @@ samples_annotations = ~pd.read_csv(
     comment="#",
 ).isna()
 ### Data resolutions
-ignore_resolutions_more_than = config["ignore_resolutions_more_than"]
-resolutions = config["resolutions"]  ##### Assume same resolutions in all coolers
-minresolution = min(resolutions)
-resolutions = list(filter(lambda x: x <= ignore_resolutions_more_than, resolutions))
 
 if config["eigenvector"]["do"]:
-    eigenvector_resolution_limits = config["eigenvector"]["resolution_limits"]
-    eigenvector_resolutions = list(
-        filter(
-            lambda x: eigenvector_resolution_limits[0]
-            <= x
-            <= eigenvector_resolution_limits[1],
-            resolutions,
-        )
-    )
+    eigenvector_resolutions = config["eigenvector"]["resolutions"]
 
 if config["saddle"]["do"]:
     saddle_mindist, saddle_maxdist = config["saddle"]["distance_limits"]
@@ -210,14 +198,8 @@ if config["pileups"]["do"]:
         pileup_norms.append("expected")
     if len(pileup_norms) == 0:
         raise ValueError("Please use expected or shifts to normalize pileups")
-    pileup_resolution_limits = config["pileups"]["resolution_limits"]
     pileups_mindist, pileups_maxdist = config["pileups"]["distance_limits"]
-    pileup_resolutions = list(
-        filter(
-            lambda x: pileup_resolution_limits[0] <= x <= pileup_resolution_limits[1],
-            resolutions,
-        )
-    )
+    pileup_resolutions = config["pileups"]["resolutions"]
     mindists = [
         int(pileups_mindist * 2**i)
         for i in np.arange(0, np.log2(pileups_maxdist / pileups_mindist))
@@ -252,12 +234,20 @@ if config["call_TADs"]["do"]:
 
 # bedpe_mindists = [int(bedpe_pileups_mindist*2**i) for i in np.arange(0, np.log2(bedpe_pileups_maxdist/bedpe_pileups_mindist))]
 # bedpe_separations = [f'{mindist}-{mindist*2}' for mindist in bedpe_mindists]
-
-expecteds = expand(
-    f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
-    sample=samples,
-    resolution=resolutions,
-)
+expecteds = []
+if config["expected"]["do"]:
+    if config["expected"]["cis"]:
+        expecteds += expand(
+            f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
+            sample=samples,
+            resolution=config["expected"]["resolutions"],
+        )
+    if config["expected"]["trans"]:
+        expecteds += expand(
+            f"{expected_folder}/{{sample}}_{{resolution}}.expected.trans.tsv",
+            sample=samples,
+            resolution=config["expected"]["resolutions"],
+        )
 
 insulation = (
     expand(
@@ -294,7 +284,7 @@ diff_boundaries_pileups = (
 tads = (
     expand(
         f"{tad_folder}/TADs_{{sample}}_{{tad_res_win}}.bed",
-        sample=samples_df.index[samples_df['do_tads']],
+        sample=samples_df.index[samples_df["do_tads"]],
         tad_res_win=tad_res_win,
     )
     if config["call_TADs"]["do"]
@@ -307,7 +297,7 @@ tads_pileups = (
         f"{pileups_folder}/{tad_folder_name}/{{sample}}-{{resolution}}_over_TADs_{{sampleTADs}}_{{tad_res_win}}_{{norm}}_local_rescaled.clpy",
         sample=samples,
         resolution=pileup_resolutions,
-        sampleTADs=samples_df.index[samples_df['do_tads']],
+        sampleTADs=samples_df.index[samples_df["do_tads"]],
         tad_res_win=tad_res_win,
         norm=pileup_norms,
     )
@@ -322,7 +312,7 @@ if dot_methods:
     dots = expand(
         f"{loop_folder}/merged_resolutions/Dots_{{method}}_{{sampleDots}}.bedpe",
         method=dot_methods,
-        sampleDots=samples_df.index[samples_df['do_dots']],
+        sampleDots=samples_df.index[samples_df["do_dots"]],
     )
 
     dots_pileups = (
@@ -331,7 +321,7 @@ if dot_methods:
             sample=samples,
             resolution=pileup_resolutions,
             method=dot_methods,
-            sampleDots=samples_df.index[samples_df['do_dots']],
+            sampleDots=samples_df.index[samples_df["do_dots"]],
             norm=pileup_norms,
             mode=["distal", "by_distance"],
         )

@@ -7,7 +7,7 @@ rule make_pileups:
         else [],
         view=lambda wildcards: config["view"],
     output:
-        f"{eigenvectors_folder}/pentads/{{sample}}-{{resolution,[0-9]+}}_{{norm}}_{{extra,.*}}.clpy",
+        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{features}}_{{norm}}_{{extra,.*}}.clpy",
     wildcard_constraints:
         norm="(expected|nonorm|[0-9]+\-shifts)",
     params:

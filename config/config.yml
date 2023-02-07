@@ -5,12 +5,6 @@ path_genome_fasta: resources/genome/hg38.fa
 chromsizes: resources/genome/hg38_chromsizes.txt
 view: resources/test_view.txt
 
-# List of all resolutions to use
-resolutions:
-    - 1000000
-# Resolutions coarser than this will not be used
-ignore_resolutions_more_than: 10000000
-
 # Samples file with two columns: sample name ("sample") and path/url with cool file ("file").
 # If it's URL, it will be downloaded. If the file is already downloaded it will not be overwritten.
 # The downloaded file will be stored as {coolers_folder}/{sample}.mcool
@@ -48,16 +42,28 @@ tad_folder: results/tads
 dot_folder: results/dots
 boundary_folder: results/boundaries
 
+expected:
+    do: True #If False, still will calculate them when needed by other rules
+    cis: True
+    trans: True
+    resolutions:
+        - 1000
+        - 10000
+        - 100000
+        - 1000000
+    extra_args_cis: ""
+    extra_args_trans: ""
+
 # Parameters for calculation of the eigenvectors (cooltools eigs-cis or eigs-trans)
 # They are phased using GC content whcih is automatically calculated from the genome .fastqs
 eigenvector:
     do: True
     cis: True
     trans: True
-    resolution_limits:
-        - 50000
+    resolutions:
+        - 100000
         - 1000000
-    save_compartment_beds: False # If True, will run a simple HMM to save a .bed file
+    save_compartment_beds: True # If True, will run a simple HMM to save a .bed file
                                  # with coordinates of A and B compartments
 
 # Parameters for saddles - a way to quantify global compartment structure (cooltools saddle)
@@ -89,8 +95,7 @@ pentads:
 # Parameters for pileups using coolpuppy
 pileups:
     do: True
-    resolution_limits:
-        - 5000
+    resolutions:
         - 10000
     distance_limits:
         - 500000
