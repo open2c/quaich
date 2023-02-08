@@ -133,3 +133,7 @@ cluster_logs/*
 
 .snakemake/
 results/*
+resources/*
+inputs/*
+
+.DS_Store
