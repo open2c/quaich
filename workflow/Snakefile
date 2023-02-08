@@ -58,12 +58,6 @@ boundary_folder = path.normpath(
     config.get("boundary_folder", path.join(project_folder, "boundaries"))
 )
 boundary_folder_name = path.basename(boundary_folder)
-outfolders = {
-    tad_folder_name: tad_folder,
-    loop_folder_name: loop_folder,
-    boundary_folder_name: boundary_folder,
-    beds_folder_name: beds_folder,
-}
 
 
 include: "rules/common.smk"
@@ -230,6 +224,9 @@ if config["call_TADs"]["do"]:
 
 # bedpe_mindists = [int(bedpe_pileups_mindist*2**i) for i in np.arange(0, np.log2(bedpe_pileups_maxdist/bedpe_pileups_mindist))]
 # bedpe_separations = [f'{mindist}-{mindist*2}' for mindist in bedpe_mindists]
+
+###### Setup outputs for the pipeline
+# Expected files
 expecteds = []
 if config["expected"]["do"]:
     if config["expected"]["cis"]:
@@ -245,6 +242,7 @@ if config["expected"]["do"]:
             resolution=config["expected"]["resolutions"],
         )
 
+# Insulation, boundaries, TADs and their pileups
 insulation = (
     expand(
         f"{insulation_folder}/{{sample}}_{{resolution}}.insulation.tsv",
@@ -331,6 +329,7 @@ tads_pileups = (
     else []
 )
 
+# Dots and dot pileups
 dot_methods = [
     m for m in config["call_dots"]["methods"] if config["call_dots"]["methods"][m]["do"]
 ]
@@ -358,6 +357,7 @@ else:
     dots = []
     dots_pileups = []
 
+# Setup file types for dot bedpes files and boundary/TAD beds
 for file in dots:
     name = path.splitext(path.basename(file))[0]
     bedfiles_dict[name] = file
@@ -367,6 +367,7 @@ for file in tads + diff_boundaries:
     bedfiles_dict[name] = file
     bedtype_dict[name] = "bed"
 
+# Pileups for annotation files
 beds_pileups = []
 if config["pileups"]["do"]:
     for bedname, row in bed_df.iterrows():
@@ -390,6 +391,7 @@ if config["pileups"]["do"]:
                 mode=modes,
             )
 
+# Saddles and compartment beds
 saddles = (
     expand(
         f"{saddles_folder}/{{sample}}_{{resolution}}_{{bins}}{{dist}}.{{ending}}",
@@ -414,18 +416,28 @@ compartments = (
     else []
 )
 
+
 # Pentads for all samples based on compartments from all samples - for now all combinations!
 pentads = (
     expand(
-        f"{eigenvectors_folder}/pentads/{{sample}}_{config['pentads']['data_resolution']}_over_compartments_{{sample_ref}}_{config['pentads']['eigenvector_resolution']}_{{norm}}_pentads.clpy",
+        f"{eigenvectors_folder}/pentads/{{sample}}_{config['pentads']['data_resolution']}_over_compartments_{{sample}}_{config['pentads']['eigenvector_resolution']}_{{norm}}_pentads.clpy",
         sample=samples,
-        sample_ref=samples,
         norm=config["pentads"]["norms"],
         mode=config["pentads"]["modes"],  # Add option to do trans in the future
     )
     if config["pentads"]["do"]
     else []
 )
+for sample1, sample2 in [pair.split("_vs_") for pair in sample_pairs]:
+    pentads += (
+        expand(
+            f"{eigenvectors_folder}/pentads/{sample1}_{config['pentads']['data_resolution']}_over_compartments_{sample2}_{config['pentads']['eigenvector_resolution']}_{{norm}}_pentads.clpy",
+            norm=config["pentads"]["norms"],
+            mode=config["pentads"]["modes"],  # Add option to do trans in the future
+        )
+        if config["pentads"]["do"] and config["pentads"]["do_diff"]
+        else []
+    )
 
 # Differential pentads calculated using compartments from sample2
 diff_pentads = []
