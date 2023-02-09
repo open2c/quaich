@@ -19,51 +19,67 @@ rule make_expected_cis:
     output:
         f"{expected_folder}/{{sample}}_{{resolution,[0-9]+}}.expected.tsv",
     params:
-        extra="--ignore-diags 0",
+        extra=lambda wildcards: config["expected"]["extra_args_cis"],
     threads: 4
     resources:
         mem_mb=lambda wildcards, threads: threads * 8 * 1024,
         runtime=60,
     wrapper:
-        "v1.19.1/bio/cooltools/expected_cis"
+        "v1.21.2/bio/cooltools/expected_cis"
 ```
 
-`Quaich` groups similar rules together in config.yaml, which is read as a python dictionary by the Snakefile. Parameters for individual rules are passed as indented (key, value) pairs. For example, call_dots configures three rules, call_loops_cooltools,  call_loops_chromosight, and call_loops_mustache. The parameters for each specific rule is underneath, the shared parameters are below (e.g. resolutions, and samples).  call_loops_cooltools has parameters do, max_dist, fdr. `Do` always specifies if the workflow should attempt to produce the output for this rule.
+`Quaich` groups similar rules together in config.yaml, which is read as a python dictionary by the Snakefile. Parameters for individual rules are passed as indented (key, value) pairs. For example, call_dots configures three methods of calling dots in Hi-C: cooltools,  chromosight, and mustache. The parameters for each specific rule are underneath, the shared parameters are below (in this case, the resolutions, and whether to generate pileups for the dot calls). `Do` always specifies if the workflow should attempt to produce the output for this rule. In most cases there is an `extra` argument, where any arbitrary command line arguments not exposed through the YAML can be passed to the underlying tool.
 ```yaml
 call_dots:
     methods:
         cooltools:
-            do: False
+            do: True
             extra: "--max-loci-separation 10000000 --fdr 0.02"
         chromosight:
-            do: False
+            do: True
             extra: ""
         mustache:
-            do: False
+            do: True
             max_dist: 10000000
             extra: "-pt 0.05 -st 0.8"
     resolutions:
         - 10000
-    samples:
-        - test_cool
+    pileup: True
 ```
 
 `quaich`  config.yaml has four main sections:
 - genome
-- annotations
-- i/o 
+- samples and annotations
+Here you can set up what comparisons between samples to perform. The .tsv file with samples can contain any arbitrary columns, and you can provide names of those columns to `fields_do_differ` and `fields_to_match`, this will generate all combinations of samples to compare. For example, to compare different cell types the default config contains
+```yaml
+fields_to_match: null
+fields_to_differ:
+    cell_type: hESCs
+```
+This will not try to match any specific fields between samples, but will ensure that for comparisons the value of the cell_type column is different between samples, and the `hESCs` data will be used as the "reference" dataset, with the rest compared to this one.
+
+If the samples.tsv file had a `sex` column, we could ensure to compare only samples on the same sex by providing
+
+```yaml
+fields_to_match: sex
+```
+
+- i/o
+Here you can configure where the inputs are located and where the results are saved.
+
 - snakemake rule configurations
 
 
 The following analyses can be configured:
+- expected: calculates cis and trans expected contact frequencies using cooltools
 - eigenvector: calculates cis eigenvectors using cooltools for all resolutions within specified _resolution_limits_. 
 - saddle: calculates saddles, reflecting average interaction preferences, from cis eigenvectors for each sample using cooltools.
-- pileups: does everything :)
-- loopability: tba
-- insulation: calculates diamond insulation score for specified resolutions and window sizes, using cooltools. Currently runs separately for different window sizes. 
-- call_dots: three methods of calling dots, at specified resolutions, and postprocess output to bedpe. Implemented callers are cooltools, mustache and chromosight. Only runs on specified samples. 
- - compare_boundaries: generates differential boundaries between specified samples, used as input for pileups.
-- call_TADs: combines lists of strong boundaries for specified samples into a list across window sizes for each resolution, filtered by length, used as input for pileups. 
+- pentads: calculates pentads, as another way to visualize and quantify compartment strength (https://doi.org/10.1186/s12859-022-04654-6)
+- pileups: does pretty much any pileup analysis imaginable using coolpup.py :) (https://doi.org/10.1093/bioinformatics/btaa073)
+- call_dots: three methods of calling dots, at specified resolutions, and postprocess output to standardized bedpe format. Implemented callers are cooltools, mustache and chromosight. Which samples are used can be defined in the samples.tsv configuration file.
+- insulation: calculates diamond insulation score for specified resolutions and window sizes, using cooltools.
+- compare_boundaries: generates differential boundaries, used as input for pileups.
+- call_TADs: combines lists of strong boundaries for specified samples into a list across window sizes for each resolution, filtered by length, used as input for pileups. Which samples are used can be defined in the samples.tsv configuration file.
 
 ## Authors
 
@@ -114,13 +130,17 @@ or
 
     snakemake --use-conda --configfile config/config.yml --drmaa --jobs 100
 
+For slurm, consider using the following arguments:
+    
+    --cluster "sbatch -A CLUSTER_ACCOUNT -t CLUSTER_TIME -p CLUSTER_PARTITION -N CLUSTER_NODES -J JOBNAME" --jobs NUM_JOBS_TO_SUBMIT
+
 Alternatively, you might want to look into snakemake profiles already available for your HPC scheduler online, for example, [here](https://github.com/Snakemake-Profiles) or elsewhere.
 
-If you not only want to fix the software stack but also the underlying OS, use
+<!-- If you not only want to fix the software stack but also the underlying OS, use
 
     snakemake --use-conda --configfile config/config.yml --use-singularity
 
-in combination with any of the modes above. *(Not yet available)*
+in combination with any of the modes above. *(Not yet available)* -->
 See the [Snakemake documentation](https://snakemake.readthedocs.io/en/stable/executable.html) for further details.
 
 
