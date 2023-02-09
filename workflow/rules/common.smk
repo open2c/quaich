@@ -1,20 +1,96 @@
-from snakemake.utils import validate
-import pandas as pd
+def get_files(folder, extension):
+    files = list(map(path.basename, glob(f"{folder}/*{extension}")))
+    return files
 
 
-# this container defines the underlying OS for each job when using the workflow
-# with --use-conda --use-singularity
-singularity: "docker://continuumio/miniconda3"
+def make_local_path(bedname, kind):
+    if kind == "bed":
+        return f"{beds_folder}/{bedname}.bed"
+    elif kind == "bedpe":
+        return f"{bedpes_folder}/{bedname}.bedpe"
+    else:
+        raise ValueError("Only bed and bedpe file types are supported")
 
 
-##### load config and sample sheets #####
+def merge_dicts(dict1, dict2):
+    return toolz.dicttoolz.merge_with(
+        lambda x: list(toolz.itertoolz.concat(x)), dict1, dict2
+    )
 
 
-configfile: "config/config.yaml"
+def split_dist(dist_wildcard, mindist_arg="--mindist", maxdist_arg="--maxdist"):
+    if dist_wildcard == "":
+        return ""
+    else:
+        assert dist_wildcard.startswith("_dist_")
+        dists = dist_wildcard.split("_")[-1]
+        mindist, maxdist = dists.split("-")
+        return f"{mindist_arg} {mindist} {maxdist_arg} {maxdist}"
 
 
-validate(config, schema="../schemas/config.schema.yaml")
+def get_shifts(norm_string):
+    if norm_string.endswith("shifts"):
+        shifts = int(norm_string.split("-")[0])
+    else:
+        shifts = 0
+    return f"--nshifts {shifts}"
 
-samples = pd.read_csv(config["samples"], sep="\t").set_index("sample", drop=False)
-samples.index.names = ["sample_id"]
-validate(samples, schema="../schemas/samples.schema.yaml")
+
+def get_mode_arg(mode):
+    if mode == "local":
+        return "--local"
+    elif mode == "trans":
+        return "--trans"
+    else:
+        return ""
+
+
+def verify_view_cooler(clr):
+    try:
+        view = read_viewframe_from_file(
+            config["view"], verify_cooler=clr, check_sorting=True
+        )
+        return
+    except Exception as e:
+        raise ValueError(f"View not compatible with cooler!") from e
+
+
+def download_file(file, local_filename):
+    import requests
+    import tqdm
+    import re
+
+    with requests.get(file, stream=True) as r:
+        ext_gz = (
+            ".gz"
+            if re.findall("filename=(.+)", r.headers["content-disposition"])[
+                0
+            ].endswith(".gz")
+            else ""
+        )
+        r.raise_for_status()
+        print("downloading:", file, "as ", local_filename + ext_gz)
+        with open(local_filename + ext_gz, "wb") as f:
+            for chunk in tqdm.tqdm(r.iter_content(chunk_size=8192)):
+                f.write(chunk)
+    return local_filename + ext_gz
+
+
+def get_file(file, output):
+    """
+    If input is URL, it download via python's requests. Uncompress if needed.
+    """
+    if file == output:
+        exit()
+
+    from urllib.parse import urlparse
+
+    parsed_path = urlparse(file)
+    if parsed_path.scheme == "http" or parsed_path.scheme == "https":
+        output_file = download_file(file, output)
+    else:
+        raise Exception(
+            f"Unable to download from: {file}\nScheme {parsed_url.scheme} is not supported"
+        )
+    if output_file.endswith(".gz"):
+        shell(f"gzip -d {output_file}")

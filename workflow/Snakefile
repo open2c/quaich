@@ -2,21 +2,24 @@
 import os
 from os import path
 from glob import glob
+import itertools
 import cooler
 import numpy as np
 import pandas as pd
 import bioframe
-from scipy import spatial
 import toolz
 from cooltools.lib.io import read_viewframe_from_file
+from scipy import spatial
 
 
 localrules:
     all,
+    make_pentads,
+    make_diff_pentads,
     merge_dots_across_resolutions,
     make_differential_insulation,
     make_tads,
-    call_loops_mustache,
+    call_dots_mustache,
     get_bed_data,
     get_cool_data,
 
@@ -49,20 +52,16 @@ insulation_folder = path.normpath(
 )
 tad_folder = path.normpath(config.get("tad_folder", path.join(project_folder, "tads")))
 tad_folder_name = path.basename(tad_folder)
-loop_folder = path.normpath(
-    config.get("loop_folder", path.join(project_folder, "loops"))
-)
+loop_folder = path.normpath(config.get("dot_folder", path.join(project_folder, "dots")))
 loop_folder_name = path.basename(loop_folder)
 boundary_folder = path.normpath(
     config.get("boundary_folder", path.join(project_folder, "boundaries"))
 )
 boundary_folder_name = path.basename(boundary_folder)
-outfolders = {
-    tad_folder_name: tad_folder,
-    loop_folder_name: loop_folder,
-    boundary_folder_name: boundary_folder,
-    beds_folder_name: beds_folder,
-}
+
+
+include: "rules/common.smk"
+
 
 ### Input genome
 genome = config["genome"]
@@ -79,17 +78,10 @@ def will_download(link):
     return False if parsed_path.scheme == "" else True
 
 
-def verify_view_cooler(clr):
-    try:
-        view = read_viewframe_from_file(
-            config["view"], verify_cooler=clr, check_sorting=True
-        )
-        return
-    except Exception as e:
-        raise ValueError(f"View not compatible with cooler!") from e
-
-
-samples_df = pd.read_csv(config["samples"], sep="\t", header=0, comment="#")
+samples_df = pd.read_csv(
+    config["samples"], sep="\t", header=0, comment="#", dtype={"do_dots": bool}
+)
+samples_df = samples_df.fillna(value=False)
 samples_df.loc[:, "will_download"] = samples_df.file.apply(will_download)
 samples_df.loc[:, "local_path"] = samples_df.apply(
     lambda x: f"{coolers_folder}/{x['sample']}.mcool" if x.will_download else x["file"],
@@ -103,42 +95,16 @@ coollinks_dict = dict(
 )  # dict with cools to be downloaded
 coolfiles_dict = dict(samples_df["local_path"])
 
+for coolfile in coolfiles_dict.keys():
+    if coolfile not in coollinks_dict.keys():
+        verify_view_cooler(
+            cooler.Cooler(f"{coolfile}::resolutions/{config['resolutions'][0]}")
+        )
+
 ### Input bed files
 def get_files(folder, extension):
     files = list(map(path.basename, glob(f"{folder}/*{extension}")))
     return files
-
-
-# Setting up pairwise comparisons
-sample_pairs = []
-if config["fields_to_differ"] is not None:
-    for name, group in samples_df.groupby(
-        lambda x: config["fields_to_match"]
-        if config["fields_to_match"] is not None
-        else True
-    ):
-        for sample1, sample2 in itertools.permutations(group.index, 2):
-            if np.all(
-                samples_df.loc[
-                    sample1, list(config["fields_to_differ"].keys())
-                ].to_numpy()
-                != np.array(list(config["fields_to_differ"].values()))
-            ) and np.all(
-                samples_df.loc[
-                    sample2, list(config["fields_to_differ"].keys())
-                ].to_numpy()
-                == np.array(list(config["fields_to_differ"].values()))
-            ):
-                sample_pairs.append((sample1, sample2))
-sample_pairs_string = [f"{pair[0]}_vs_{pair[1]}" for pair in sample_pairs]
-sample_pairs_string_with_reverse = sample_pairs_string + [
-    f"{pair[1]}_vs_{pair[0]}" for pair in sample_pairs
-]
-# for coolfile in coolfiles_dict.values():
-#     if coolfile not in coollinks_dict.values():
-#         verify_view_cooler(
-#             cooler.Cooler(f"{coolfile}::resolutions/{config['resolutions'][0]}")
-#         )
 
 
 def make_local_path(bedname, kind):
@@ -166,6 +132,7 @@ bed_df.loc[:, "will_download"] = bed_df.file.apply(will_download)
 bed_df.loc[:, "local_path"] = bed_df.apply(
     lambda x: make_local_path(x.bedname, x.format) if x.will_download else x.file,
     axis=1,
+    result_type="reduce",
 )
 bed_df = bed_df.set_index("bedname").replace("-", np.nan)
 
@@ -174,7 +141,7 @@ pileup_params = config["pileups"]["arguments"]
 bed_df[list(pileup_params.keys())] = ~bed_df[list(pileup_params.keys())].isna()
 
 bedlinks_dict = dict(
-    bed_df.query("will_download")["file"]
+    bed_df.loc[bed_df["will_download"], "file"]
 )  # dict with beds to be downloaded
 bedfiles_dict = dict(bed_df["local_path"])
 bedfiles_dict.update(local_bed_names)
@@ -192,21 +159,9 @@ samples_annotations = ~pd.read_csv(
     comment="#",
 ).isna()
 ### Data resolutions
-ignore_resolutions_more_than = config["ignore_resolutions_more_than"]
-resolutions = config["resolutions"]  ##### Assume same resolutions in all coolers
-minresolution = min(resolutions)
-resolutions = list(filter(lambda x: x <= ignore_resolutions_more_than, resolutions))
 
 if config["eigenvector"]["do"]:
-    eigenvector_resolution_limits = config["eigenvector"]["resolution_limits"]
-    eigenvector_resolutions = list(
-        filter(
-            lambda x: eigenvector_resolution_limits[0]
-            <= x
-            <= eigenvector_resolution_limits[1],
-            resolutions,
-        )
-    )
+    eigenvector_resolutions = config["eigenvector"]["resolutions"]
 
 if config["saddle"]["do"]:
     saddle_mindist, saddle_maxdist = config["saddle"]["distance_limits"]
@@ -225,25 +180,13 @@ if config["pileups"]["do"]:
         pileup_norms.append("expected")
     if len(pileup_norms) == 0:
         raise ValueError("Please use expected or shifts to normalize pileups")
-    pileup_resolution_limits = config["pileups"]["resolution_limits"]
     pileups_mindist, pileups_maxdist = config["pileups"]["distance_limits"]
-    pileup_resolutions = list(
-        filter(
-            lambda x: pileup_resolution_limits[0] <= x <= pileup_resolution_limits[1],
-            resolutions,
-        )
-    )
+    pileup_resolutions = config["pileups"]["resolutions"]
     mindists = [
         int(pileups_mindist * 2**i)
         for i in np.arange(0, np.log2(pileups_maxdist / pileups_mindist))
     ]
     separations = [f"_dist_{mindist}-{mindist*2}" for mindist in mindists]
-
-
-def merge_dicts(dict1, dict2):
-    return toolz.dicttoolz.merge_with(
-        lambda x: list(toolz.itertoolz.concat(x)), dict1, dict2
-    )
 
 
 if config["insulation"]["do"] and config["call_TADs"]["do"]:
@@ -255,46 +198,76 @@ elif config["call_TADs"]["do"]:
 
 if config["insulation"]["do"]:
     insul_res_win_comb = []
-    insul_res_win_arg = {}
     for resolution in config["insulation"]["resolutions"]:
-        insul_res_win_arg[resolution] = " ".join(
-            [str(res) for res in config["insulation"]["resolutions"][resolution]]
-        )
         for win in config["insulation"]["resolutions"][resolution]:
             insul_res_win_comb.append(f"{resolution}_{win}")
 
 if config["call_TADs"]["do"]:
-    tad_res_win = []
+    tad_res_win_comb = []
     for resolution in config["call_TADs"]["resolutions"]:
         for win in config["call_TADs"]["resolutions"][resolution]:
-            tad_res_win.append(f"{resolution}_{win}")
+            tad_res_win_comb.append(f"{resolution}_{win}")
 
 # chroms = cooler.Cooler(f'{coolers_folder}/{coolfiles[0]}::resolutions/{resolutions[0]}').chroms()[:]
 
 # bedpe_mindists = [int(bedpe_pileups_mindist*2**i) for i in np.arange(0, np.log2(bedpe_pileups_maxdist/bedpe_pileups_mindist))]
 # bedpe_separations = [f'{mindist}-{mindist*2}' for mindist in bedpe_mindists]
 
-expecteds = expand(
-    f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
-    sample=samples,
-    resolution=resolutions,
-)
+###### Setup outputs for the pipeline
+# Expected files
+expecteds = []
+if config["expected"]["do"]:
+    if config["expected"]["cis"]:
+        expecteds += expand(
+            f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
+            sample=samples,
+            resolution=config["expected"]["resolutions"],
+        )
+    if config["expected"]["trans"]:
+        expecteds += expand(
+            f"{expected_folder}/{{sample}}_{{resolution}}.expected.trans.tsv",
+            sample=samples,
+            resolution=config["expected"]["resolutions"],
+        )
 
+# Insulation, boundaries, TADs and their pileups
 insulation = (
     expand(
         f"{insulation_folder}/{{sample}}_{{resolution}}.insulation.tsv",
         sample=samples,
-        resolution=insul_res_win_arg.keys(),
+        resolution=config["insulation"]["resolutions"].keys(),
     )
     if (config["insulation"]["do"] or config["call_TADs"]["do"])
     else []
 )
 
+boundaries = (
+    expand(
+        f"{boundary_folder}/Boundaries_{{sample}}_{{resolution_window}}.bed",
+        sample=samples,
+        resolution_window=insul_res_win_comb,
+    )
+    if (config["insulation"]["do"] or config["call_TADs"]["do"])
+    else []
+)
+
+boundaries_pileups = (
+    expand(
+        f"{pileups_folder}/{boundary_folder_name}/{{sample}}-{{resolution}}_over_Boundaries_{{sample}}_{{resolution_window}}_{{norm}}_local.clpy",
+        sample=samples,
+        resolution=pileup_resolutions,
+        resolution_window=insul_res_win_comb,
+        norm=pileup_norms,
+    )
+    if (config["insulation"]["do"] and config["insulation"]["pileup"])
+    else []
+)
+
 diff_boundaries = (
     expand(
-        f"{boundary_folder}/Diff_boundaries_{{comparison}}_{{resolution_window}}.bed",
-        comparison=sample_pairs_string_with_reverse,
-        resolution_window=insul_res_win_comb,
+        f"{boundary_folder}/Insulation_{config['compare_boundaries']['samples'][0]}_not_"
+        f"{config['compare_boundaries']['samples'][1]}_{{insul_res_win}}.bed",
+        insul_res_win=insul_res_win_comb,
     )
     if config["compare_boundaries"]["do"]
     else []
@@ -302,67 +275,70 @@ diff_boundaries = (
 diff_boundaries_pileups = (
     expand(
         f"{pileups_folder}/{boundary_folder_name}/{{sample}}-{{resolution}}_over_Insulation_{config['compare_boundaries']['samples'][0]}_not_"
-        f"{config['compare_boundaries']['samples'][1]}_{{resolution_window}}_{{norm}}_local.clpy",
+        f"{config['compare_boundaries']['samples'][1]}_{{insul_res_win}}_{{norm}}_local.clpy",
         sample=samples,
         resolution=pileup_resolutions,
-        comparison=sample_pairs_string_with_reverse,
-        resolution_window=insul_res_win_comb,
+        insul_res_win=insul_res_win_comb,
         norm=pileup_norms,
     )
-    if config["compare_boundaries"]["do"] and config["pileups"]["do"]
+    if config["compare_boundaries"]["do"] and config["compare_boundaries"]["pileup"]
     else []
 )
 
 tads = (
     expand(
-        f"{tad_folder}/TADs_{{sampleTADs}}_{{tad_res_win}}.bed",
-        sampleTADs=config["call_TADs"]["samples"],
-        tad_res_win=tad_res_win,
+        f"{tad_folder}/TADs_{{sample}}_{{tad_res_win}}.bed",
+        sample=samples_df.index[samples_df["do_tads"]],
+        tad_res_win=tad_res_win_comb,
     )
     if config["call_TADs"]["do"]
     else []
 )
+
 
 tads_pileups = (
     expand(
         f"{pileups_folder}/{tad_folder_name}/{{sample}}-{{resolution}}_over_TADs_{{sampleTADs}}_{{tad_res_win}}_{{norm}}_local_rescaled.clpy",
         sample=samples,
         resolution=pileup_resolutions,
-        sampleTADs=config["call_TADs"]["samples"],
-        tad_res_win=tad_res_win,
+        sampleTADs=samples_df.index[samples_df["do_tads"]],
+        tad_res_win=tad_res_win_comb,
         norm=pileup_norms,
     )
-    if config["call_TADs"]["do"] and config["pileups"]["do"]
+    if config["call_TADs"]["do"] and config["call_TADs"]["pileup"]
     else []
 )
+
+# Dots and dot pileups
 dot_methods = [
     m for m in config["call_dots"]["methods"] if config["call_dots"]["methods"][m]["do"]
 ]
 if dot_methods:
-    loops = expand(
-        f"{loop_folder}/merged_resolutions/Loops_{{method}}_{{sampleLoops}}.bedpe",
+    dots = expand(
+        f"{loop_folder}/merged_resolutions/Dots_{{method}}_{{sampleDots}}.bedpe",
         method=dot_methods,
-        sampleLoops=config["call_dots"]["samples"],
+        sampleDots=samples_df.index[samples_df["do_dots"]],
     )
 
-    loops_pileups = (
+    dots_pileups = (
         expand(
-            f"{pileups_folder}/{loop_folder_name}/{{sample}}-{{resolution}}_over_Loops_{{method}}_{{sampleLoops}}_{{norm}}_{{mode}}.clpy",
+            f"{pileups_folder}/{loop_folder_name}/{{sample}}-{{resolution}}_over_Dots_{{method}}_{{sampleDots}}_{{norm}}_{{mode}}.clpy",
             sample=samples,
             resolution=pileup_resolutions,
             method=dot_methods,
-            sampleLoops=config["call_dots"]["samples"],
+            sampleDots=samples_df.index[samples_df["do_dots"]],
             norm=pileup_norms,
             mode=["distal", "by_distance"],
         )
-        if config["pileups"]["do"]
+        if config["call_dots"]["pileup"]
         else []
     )
 else:
-    loops = []
-    loops_pileups = []
+    dots = []
+    dots_pileups = []
 
-for file in loops:
+# Setup file types for dot bedpes files and boundary/TAD beds
+for file in dots:
     name = path.splitext(path.basename(file))[0]
     bedfiles_dict[name] = file
     bedtype_dict[name] = "bedpe"
@@ -371,6 +347,7 @@ for file in tads + diff_boundaries:
     bedfiles_dict[name] = file
     bedtype_dict[name] = "bed"
 
+# Pileups for annotation files
 beds_pileups = []
 if config["pileups"]["do"]:
     for bedname, row in bed_df.iterrows():
@@ -394,6 +371,7 @@ if config["pileups"]["do"]:
                 mode=modes,
             )
 
+# Saddles and compartment beds
 saddles = (
     expand(
         f"{saddles_folder}/{{sample}}_{{resolution}}_over_{{sample}}_eig_{{bins}}{{dist}}.{{ending}}",
@@ -419,23 +397,49 @@ for sample1, sample2 in sample_pairs:
         else []
     )
 
+compartments = (
+    expand(
+        f"{eigenvectors_folder}/compartments/{{sample}}_{{resolution}}_compartments.{{mode}}.bed",
+        sample=samples,
+        resolution=eigenvector_resolutions,
+        mode=["cis"],  # Add option to do trans in the future
+    )
+    if config["eigenvector"]["save_compartment_beds"]
+    else []
+)
 
-def split_dist(dist_wildcard, mindist_arg="--mindist", maxdist_arg="--maxdist"):
-    if dist_wildcard == "":
-        return ""
-    else:
-        assert dist_wildcard.startswith("_dist_")
-        dists = dist_wildcard.split("_")[-1]
-        mindist, maxdist = dists.split("-")
-        return f"{mindist_arg} {mindist} {maxdist_arg} {maxdist}"
 
+# Pentads for all samples based on compartments from all samples - for now all combinations!
+pentads = (
+    expand(
+        f"{eigenvectors_folder}/pentads/{{sample}}_{config['pentads']['data_resolution']}_over_compartments_{{sample}}_{config['pentads']['eigenvector_resolution']}_{{norm}}_pentads.clpy",
+        sample=samples,
+        norm=config["pentads"]["norms"],
+        mode=config["pentads"]["modes"],  # Add option to do trans in the future
+    )
+    if config["pentads"]["do"]
+    else []
+)
+for sample1, sample2 in [pair.split("_vs_") for pair in sample_pairs]:
+    pentads += (
+        expand(
+            f"{eigenvectors_folder}/pentads/{sample1}_{config['pentads']['data_resolution']}_over_compartments_{sample2}_{config['pentads']['eigenvector_resolution']}_{{norm}}_pentads.clpy",
+            norm=config["pentads"]["norms"],
+            mode=config["pentads"]["modes"],  # Add option to do trans in the future
+        )
+        if config["pentads"]["do"] and config["pentads"]["do_diff"]
+        else []
+    )
 
-def get_shifts(norm_string):
-    if norm_string.endswith("shifts"):
-        shifts = int(norm_string.split("-")[0])
-    else:
-        shifts = 0
-    return f"--nshifts {shifts}"
+# Differential pentads calculated using compartments from sample2
+diff_pentads = []
+if config["pentads"]["do_diff"]:
+    for sample_pair in sample_pairs:
+        sample1, sample2 = sample_pair.split("_vs_")
+        diff_pentads += expand(
+            f"{eigenvectors_folder}/pentads/diff/{sample_pair}_{config['pentads']['data_resolution']}_over_compartments_{sample2}_{config['pentads']['eigenvector_resolution']}_{{norm}}_pentads.clpy",
+            norm=config["pentads"]["norms"],
+        )
 
 
 # Pentads for all samples based on compartments from all samples - for now all combinations!
@@ -478,8 +482,8 @@ rule all:
         lambda wildcards: diff_boundaries_pileups,
         lambda wildcards: tads,
         lambda wildcards: tads_pileups,
-        lambda wildcards: loops,
-        lambda wildcards: loops_pileups,
+        lambda wildcards: dots,
+        lambda wildcards: dots_pileups,
         lambda wildcards: beds_pileups,
         lambda wildcards: saddles,
 
@@ -715,176 +719,13 @@ rule make_insulation:
         "v1.20.0/bio/cooltools/insulation"
 
 
-rule make_saddles:
-    input:
-        cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
-        track=(
-            f"{eigenvectors_folder}/{{sample}}_{{resolution}}_eigenvectors.cis.vecs.tsv"
-        ),
-        expected=f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
-        view=lambda wildcards: config["view"],
-    output:
-        saddle=f"{saddles_folder}/{{sample}}_{{resolution,[0-9]+}}_{{bins,[0-9]+}}{{dist,.*}}.saddledump.npz",
-        digitized_track=f"{saddles_folder}/{{sample}}_{{resolution,[0-9]+}}_{{bins,[0-9]+}}{{dist,.*}}.digitized.tsv",
-    params:
-        extra=lambda wildcards: " ".join(
-            [
-                config["saddle"]["extra"],
-                split_dist(wildcards.dist, "--min-dist", "--max-dist"),
-                f"--n-bins {wildcards.bins}",
-            ]
-        ),
-        range=lambda wildcards: config["saddle"]["range"],
-    threads: 1
-    resources:
-        mem_mb=8 * 1024,
-        runtime=60,
-    wrapper:
-        "v1.19.1/bio/cooltools/saddle"
-
-
-rule make_expected_cis:
-    input:
-        cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
-        view=lambda wildcards: config["view"],
-    output:
-        f"{expected_folder}/{{sample}}_{{resolution,[0-9]+}}.expected.tsv",
-    params:
-        extra="--ignore-diags 0",
-    threads: 4
-    resources:
-        mem_mb=lambda wildcards, threads: threads * 8 * 1024,
-        runtime=60,
-    wrapper:
-        "v1.19.1/bio/cooltools/expected_cis"
-
-
-rule make_eigenvectors_cis:
-    input:
-        cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
-        view=lambda wildcards: config["view"],
-        track=lambda wildcards: path.join(
-            config["path_genome_folder"],
-            "gc/",
-            f"{genome}_{{resolution}}_gc.bedgraph",
-        ),
-    output:
-        vecs=f"{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.vecs.tsv",
-        lam=f"{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.lam.txt",
-        bigwig=f"{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.bw",
-    params:
-        extra="--bigwig",
-    threads: 1
-    resources:
-        mem_mb=8 * 1024,
-        runtime=60,
-    wrapper:
-        "v1.19.1/bio/cooltools/eigs_cis"
-
-
-rule make_eigenvectors_trans:
-    input:
-        cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
-        track=lambda wildcards: path.join(
-            config["path_genome_folder"],
-            "gc/",
-            f"{genome}_{{resolution}}_gc.bedgraph",
-        ),
-    output:
-        f"{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.trans.vecs.tsv",
-        f"{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.trans.lam.txt",
-        f"{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.trans.bw",
-    params:
-        track_name_col="GC",
-        extra="",
-    threads: 1
-    resources:
-        mem_mb=8 * 1024,
-        runtime=60,
-    wrapper:
-        "v1.19.1/bio/cooltools/eigs_trans"
-
-
-rule make_gc:
-    input:
-        fasta=config["path_genome_fasta"],
-        bins=lambda wildcards: path.join(
-            f'{config["path_genome_folder"]}',
-            "bins/",
-            f"{genome}_{{resolution}}_bins.bed",
-        ),
-    output:
-        path.join(
-            config["path_genome_folder"],
-            "gc/",
-            f"{genome}_{{resolution,[0-9]+}}_gc.bedgraph",
-        ),
-    threads: 1
-    resources:
-        mem_mb=8 * 1024,
-        runtime=60,
-    wrapper:
-        "v1.19.1/bio/cooltools/genome/gc"
-
-
-rule make_bins:
-    input:
-        chromsizes=config["chromsizes"],
-    output:
-        path.join(
-            config["path_genome_folder"],
-            "bins/",
-            f"{genome}_{{resolution,[0-9]+}}_bins.bed",
-        ),
-    threads: 1
-    resources:
-        mem_mb=8 * 1024,
-        runtime=60,
-    params:
-        binsize=lambda wildcards: wildcards["resolution"],
-    wrapper:
-        "v1.19.1/bio/cooltools/genome/binnify"
-
-
-def download_file(file, local_filename):
-    import requests
-    import tqdm
-    import re
-
-    with requests.get(file, stream=True) as r:
-        ext_gz = (
-            ".gz"
-            if re.findall("filename=(.+)", r.headers["content-disposition"])[
-                0
-            ].endswith(".gz")
-            else ""
-        )
-        r.raise_for_status()
-        print("downloading:", file, "as ", local_filename + ext_gz)
-        with open(local_filename + ext_gz, "wb") as f:
-            for chunk in tqdm.tqdm(r.iter_content(chunk_size=8192)):
-                f.write(chunk)
-    return local_filename + ext_gz
-
-
-def get_file(file, output):
-    """
-    If input is URL, it download via python's requests. Uncompress if needed.
-    """
-    if file == output:
-        exit()
-
-    from urllib.parse import urlparse
-
-    parsed_path = urlparse(file)
-    if parsed_path.scheme == "http" or parsed_path.scheme == "https":
-        output_file = download_file(file, output)
-    else:
-        raise Exception(
-            f"Unable to download from: {file}\nScheme {parsed_url.scheme} is not supported"
-        )
-    if output_file.endswith(".gz"):
-        shell(f"gzip -d {output_file}")
+include: "rules/pentads.smk"
+include: "rules/dots.smk"
+include: "rules/eigenvectors.smk"
+include: "rules/insulation_tads.smk"
+include: "rules/expected.smk"
+include: "rules/saddle.smk"
+include: "rules/pileups.smk"
 
 
 rule get_cool_data:

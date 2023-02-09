@@ -1,14 +1,23 @@
+# Setup the genome and view to use for analyses
 genome: hg38
 path_genome_folder: resources/genome/
 path_genome_fasta: resources/genome/hg38.fa
 chromsizes: resources/genome/hg38_chromsizes.txt
 view: resources/test_view.txt
 
-
 # Samples file with two columns: sample name ("sample") and path/url with cool file ("file").
 # If it's URL, it will be downloaded. If the file is already downloaded it will not be overwritten.
 # The downloaded file will be stored as {coolers_folder}/{sample}.mcool
 samples: config/samples.tsv
+# Setting up pairwise comparisons of samples
+# We just have two samples, so no need to ensure certain fields match, so we set this
+# setting to null
+fields_to_match: null
+# To compare by cell type, we list the name of the column with cell type from the
+# samples.tsv file, and indicate which cell type we consider as reference for the
+# comparisons
+fields_to_differ:
+    cell_type: hESCs
 # Annotations file with two columns: annotation name ("bedname") and "file" (URLs or local file)
 # Downloaded bed files will be stored in beds_folder
 annotations: config/annotations.tsv
@@ -30,21 +39,34 @@ eigenvectors_folder: results/eigenvectors
 saddles_folder: results/saddles
 insulation_folder: results/insulation
 tad_folder: results/tads
-loop_folder: results/loops
+dot_folder: results/dots
 boundary_folder: results/boundaries
 
-resolutions:
-    - 1000000
-    - 100000
-    - 10000
-    - 1000
-ignore_resolutions_more_than: 1000000
+expected:
+    do: True #If False, still will calculate them when needed by other rules
+    cis: True
+    trans: True
+    resolutions:
+        - 1000
+        - 10000
+        - 100000
+        - 1000000
+    extra_args_cis: ""
+    extra_args_trans: ""
 
+# Parameters for calculation of the eigenvectors (cooltools eigs-cis or eigs-trans)
+# They are phased using GC content whcih is automatically calculated from the genome .fastqs
 eigenvector:
     do: True
-    resolution_limits:
-        - 50000
+    cis: True
+    trans: True
+    resolutions:
+        - 100000
         - 1000000
+    save_compartment_beds: True # If True, will run a simple HMM to save a .bed file
+                                 # with coordinates of A and B compartments
+
+# Parameters for saddles - a way to quantify global compartment structure (cooltools saddle)
 saddle:
     do: True
     bins:
@@ -55,10 +77,25 @@ saddle:
     range: "--qrange 0.01 0.99 "
     extra: "--strength"
 
+# Parameters for pentads, another way to average compartments
+# Described in https://doi.org/10.1186/s12859-022-04654-6, but reimplemented using coolpuppy here
+pentads:
+    do: True
+    do_diff: True
+    data_resolution: 100000
+    eigenvector_resolution: 1000000
+    groupby:
+        - chrom1
+    norms:
+        - expected
+    modes:
+        - local
+        - distal
+
+# Parameters for pileups using coolpuppy
 pileups:
     do: True
-    resolution_limits:
-        - 5000
+    resolutions:
         - 10000
     distance_limits:
         - 500000
@@ -68,7 +105,8 @@ pileups:
     shifts: 0
     expected: True
     ooe: True #Only applies when expected is True
-    arguments:
+    arguments: # Different modes of pileups that can be applied to different annotation
+               # .bed files, relationship defined in samples_annotations_combinations file above
         distal: "--maxdist 1000000"
         by_distance: "--by_distance"
         local: "--local"
@@ -79,19 +117,7 @@ pileups:
         by_window_short_range: "--by_window --subset 1000 --maxdist 2000000"
         by_window_long_range:  "--by_window --subset 1000 --mindist 2000000"
 
-insulation:
-    do: True
-    resolutions:
-        1000:
-            - 3000 # What window sizes to do for what resolution
-            - 5000
-            - 10000
-            - 25000
-        10000:
-            - 50000
-            - 100000
-    extra: '--chunksize 1000000000 --threshold Li' # Choose between a specific float, Li or Otsu, see https://github.com/open2c/open2c_examples/blob/master/Insulation_and_boundaries.ipynb
-
+# Parameters for calling dots/loops, using different methods
 call_dots:
     methods:
         cooltools:
@@ -106,25 +132,40 @@ call_dots:
             extra: "-pt 0.05 -st 0.8"
     resolutions:
         - 10000
-    samples:
-        - test_cool
+    pileup: True
 
-compare_boundaries:
-    do: False
-    samples:
-        - test_cool
-        - test_cool
-    fold_change_threshold: 5
-
-call_TADs: # By just combining strong boundaries
+# Parameters to calculate insulation score and how to threshold (cooltools insulation)
+insulation:
     do: True
     resolutions:
-        10000: # Which window sizes to use for which resolution
+        1000:
+            - 3000 # What window sizes to do for what resolution
+            - 5000
+            - 10000
+            - 25000
+        10000:
             - 50000
             - 100000
-            - 200000
-            - 500000
+    extra: '--chunksize 1000000000 --threshold Li --ignore-diags 2' # For the threshold,
+                                                                    # choose between a specific float, Li or Otsu,
+                                                                    # see https://github.com/open2c/open2c_examples/blob/master/Insulation_and_boundaries.ipynb
+    pileup: True # Whether to pileup thresholded boundaries
+
+
+# Find differential boundaries between pairs of samples using a simple presence/absence or FC threshold for boundary strength
+compare_boundaries:
+    do: True
+    fold_change_threshold: 5
+    pileup: True
+
+# Combine neighbouring strong insulation score boundaries into TADs
+call_TADs: 
+    do: True
+    resolutions:
+        10000: # What window sizes to do for what resolution
+            - 50000
+            - 100000
             - 1000000
     max_tad_length: 1500000
-    samples:
-        - test_cool
+    pileup: True
+
