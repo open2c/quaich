@@ -127,6 +127,8 @@ sample_pairs_string = [f"{s1}_vs_{s2}" for s1, s2 in sample_pairs]
 sample_pairs_string_with_reverse = sample_pairs_string + [
     f"{s2}_vs_{s1}" for s1, s2 in sample_pairs
 ]
+
+# Setting up annotation files
 bedfiles_local = get_files(beds_folder, "bed")
 bedpefiles_local = get_files(bedpes_folder, "bedpe")
 
@@ -169,8 +171,8 @@ samples_annotations = ~pd.read_csv(
     index_col=0,
     comment="#",
 ).isna()
-### Data resolutions
 
+### Data resolutions
 if config["eigenvector"]["do"]:
     eigenvector_resolutions = config["eigenvector"]["resolutions"]
 
