@@ -101,21 +101,32 @@ for coolfile in coolfiles_dict.keys():
             cooler.Cooler(f"{coolfile}::resolutions/{config['resolutions'][0]}")
         )
 
-### Input bed files
-def get_files(folder, extension):
-    files = list(map(path.basename, glob(f"{folder}/*{extension}")))
-    return files
+# Setting up pairwise comparisons
+sample_pairs = []
 
-
-def make_local_path(bedname, kind):
-    if kind == "bed":
-        return f"{beds_folder}/{bedname}.bed"
-    elif kind == "bedpe":
-        return f"{bedpes_folder}/{bedname}.bedpe"
-    else:
-        raise ValueError("Only bed and bedpe file types are supported")
-
-
+if config["fields_to_differ"] is not None:
+    for name, group in samples_df.groupby(
+        lambda x: config["fields_to_match"]
+        if config["fields_to_match"] is not None
+        else True
+    ):
+        for sample1, sample2 in itertools.permutations(group.index, 2):
+            if np.all(
+                samples_df.loc[
+                    sample1, list(config["fields_to_differ"].keys())
+                ].to_numpy()
+                != np.array(list(config["fields_to_differ"].values()))
+            ) and np.all(
+                samples_df.loc[
+                    sample2, list(config["fields_to_differ"].keys())
+                ].to_numpy()
+                == np.array(list(config["fields_to_differ"].values()))
+            ):
+                sample_pairs.append((sample1, sample2))
+sample_pairs_string = [f"{s1}_vs_{s2}" for s1, s2 in sample_pairs]
+sample_pairs_string_with_reverse = sample_pairs_string + [
+    f"{s2}_vs_{s1}" for s1, s2 in sample_pairs
+]
 bedfiles_local = get_files(beds_folder, "bed")
 bedpefiles_local = get_files(bedpes_folder, "bedpe")
 
@@ -265,20 +276,20 @@ boundaries_pileups = (
 
 diff_boundaries = (
     expand(
-        f"{boundary_folder}/Insulation_{config['compare_boundaries']['samples'][0]}_not_"
-        f"{config['compare_boundaries']['samples'][1]}_{{insul_res_win}}.bed",
-        insul_res_win=insul_res_win_comb,
+        f"{boundary_folder}/Diff_boundaries_{{comparison}}_{{resolution_window}}.bed",
+        comparison=sample_pairs_string_with_reverse,
+        resolution_window=insul_res_win_comb,
     )
     if config["compare_boundaries"]["do"]
     else []
 )
 diff_boundaries_pileups = (
     expand(
-        f"{pileups_folder}/{boundary_folder_name}/{{sample}}-{{resolution}}_over_Insulation_{config['compare_boundaries']['samples'][0]}_not_"
-        f"{config['compare_boundaries']['samples'][1]}_{{insul_res_win}}_{{norm}}_local.clpy",
+        f"{pileups_folder}/{boundary_folder_name}/{{sample}}-{{resolution}}_over_Diff_boundaries_{{comparison}}_{{resolution_window}}_{{norm}}_local.clpy",
         sample=samples,
         resolution=pileup_resolutions,
-        insul_res_win=insul_res_win_comb,
+        comparison=sample_pairs_string_with_reverse,
+        resolution_window=insul_res_win_comb,
         norm=pileup_norms,
     )
     if config["compare_boundaries"]["do"] and config["compare_boundaries"]["pileup"]
@@ -420,7 +431,7 @@ pentads = (
     if config["pentads"]["do"]
     else []
 )
-for sample1, sample2 in [pair.split("_vs_") for pair in sample_pairs]:
+for sample1, sample2 in sample_pairs:
     pentads += (
         expand(
             f"{eigenvectors_folder}/pentads/{sample1}_{config['pentads']['data_resolution']}_over_compartments_{sample2}_{config['pentads']['eigenvector_resolution']}_{{norm}}_pentads.clpy",
@@ -434,10 +445,9 @@ for sample1, sample2 in [pair.split("_vs_") for pair in sample_pairs]:
 # Differential pentads calculated using compartments from sample2
 diff_pentads = []
 if config["pentads"]["do_diff"]:
-    for sample_pair in sample_pairs:
-        sample1, sample2 = sample_pair.split("_vs_")
+    for sample1, sample2 in sample_pairs:
         diff_pentads += expand(
-            f"{eigenvectors_folder}/pentads/diff/{sample_pair}_{config['pentads']['data_resolution']}_over_compartments_{sample2}_{config['pentads']['eigenvector_resolution']}_{{norm}}_pentads.clpy",
+            f"{eigenvectors_folder}/pentads/diff/{sample1}_vs_{sample2}_{config['pentads']['data_resolution']}_over_compartments_{sample2}_{config['pentads']['eigenvector_resolution']}_{{norm}}_pentads.clpy",
             norm=config["pentads"]["norms"],
         )
 
@@ -486,237 +496,6 @@ rule all:
         lambda wildcards: dots_pileups,
         lambda wildcards: beds_pileups,
         lambda wildcards: saddles,
-
-
-rule make_pileups:
-    input:
-        cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
-        features=lambda wildcards: bedfiles_dict[wildcards.features],
-        expected=lambda wildcards: f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv"
-        if wildcards.norm == "expected"
-        else [],
-        view=lambda wildcards: config["view"],
-    output:
-        f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{features}}_{{norm}}_{{extra,.*}}.clpy",
-    wildcard_constraints:
-        norm="(expected|nonorm|[0-9]+\-shifts)",
-    params:
-        features_format=lambda wildcards: bedtype_dict[wildcards.features],
-        extra=lambda wildcards: f"{pileup_params[wildcards.extra]} {get_shifts(wildcards.norm)}",
-    threads: 4
-    resources:
-        mem_mb=lambda wildcards, threads: threads * 16 * 1024,
-        runtime=24 * 60,
-    wrapper:
-        "v1.19.1/bio/coolpuppy"
-
-
-def dedup_dots(dots, hiccups_filter=False):
-    newdots = []
-    ress = list(sorted(set(dots["res"])))
-    for chrom in sorted(set(dots["chrom1"])):
-        chromdots = (
-            dots[dots["chrom1"] == chrom]
-            .sort_values(["start1", "start2"])
-            .reset_index(drop=True)
-        )
-        for res in ress:
-            chromdots["Supported_%s" % res] = chromdots["res"] == res
-        # TODO fix!
-        tree = spatial.cKDTree(chromdots[["start1", "start2"]])
-        drop = []
-        for i, j in tree.query_pairs(r=20000):
-            ires = chromdots.at[i, "res"]
-            jres = chromdots.at[j, "res"]
-            chromdots.at[j, "Supported_%s" % ires] = True
-            chromdots.at[i, "Supported_%s" % jres] = True
-            if ires == jres:
-                continue
-            elif ires > jres:
-                # if ress[-1] in (ires, jres) or abs(chromdots.at[j, 'start1']-chromdots.at[i, 'start1'])<=20000:
-                drop.append(i)
-            else:
-                drop.append(j)
-        newdots.append(chromdots.drop(drop))
-    deduped = pd.concat(newdots).sort_values(["chrom1", "start1", "start2"])
-    if hiccups_filter:
-        l = len(deduped)
-        deduped = deduped[
-            ~(
-                (deduped["start2"] - deduped["start1"] > 100000)
-                & (~np.any(deduped[["Supported_%s" % res for res in ress[1:]]], axis=1))
-            )
-        ]
-        print(
-            l - len(deduped),
-            "loops filtered out as unreliable %s resolution calls" % ress[0],
-        )
-    return deduped
-
-
-def read_dots(f):
-    df = pd.read_table(f, index_col=False, header=0).dropna(axis=1)
-    res = int(f.split("_")[-1].split(".")[0])
-    df["res"] = res
-    return df
-
-
-rule merge_dots_across_resolutions:
-    input:
-        dots=lambda wildcards,: [
-            f"{loop_folder}/Loops_{{method}}_{{sample}}_{resolution}.bedpe"
-            for resolution in config["call_dots"]["resolutions"]
-        ],
-    output:
-        f"{loop_folder}/merged_resolutions/Loops_{{method}}_{{sample}}.bedpe",
-    threads: 1
-    resources:
-        mem_mb=lambda wildcards, threads: 1024,
-        runtime=5,
-    run:
-        dots = pd.concat((map(read_dots, input.dots))).reset_index(drop=True)
-        dots = dedup_dots(dots)[
-            ["chrom1", "start1", "end1", "chrom2", "start2", "end2"]
-        ]
-        dots.to_csv(output[0], sep="\t", header=False, index=False)
-
-
-rule call_loops_cooltools:
-    input:
-        cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
-        expected=f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
-        view=lambda wildcards: config["view"],
-    output:
-        f"{loop_folder}/Loops_cooltools_{{sample}}_{{resolution,[0-9]+}}.bedpe",
-    threads: 4
-    params:
-        extra=lambda wildcards: config["call_dots"]["methods"]["cooltools"]["extra"],
-    resources:
-        mem_mb=lambda wildcards, threads: threads * 16 * 1024,
-        runtime=24 * 60,
-    wrapper:
-        "v1.19.1/bio/cooltools/dots"
-
-
-rule call_loops_chromosight:
-    input:
-        cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
-    output:
-        bedpe=f"{loop_folder}/Loops_chromosight_{{sample}}_{{resolution,[0-9]+}}.bedpe",
-        json=f"{loop_folder}/Loops_chromosight_{{sample}}_{{resolution,[0-9]+}}.json",
-    threads: 4
-    resources:
-        mem_mb=lambda wildcards, threads: threads * 16 * 1024,
-        runtime=24 * 60,
-    conda:
-        "envs/chromosight_env.yml"
-    shell:
-        f"chromosight detect --pattern loops --no-plotting -t {{threads}} {{input.cooler}}::resolutions/{{wildcards.resolution}} {loop_folder}/Loops_chromosight_{{wildcards.sample}}_{{wildcards.resolution}} && "
-        f"mv {loop_folder}/Loops_chromosight_{{wildcards.sample}}_{{wildcards.resolution}}.tsv {{output.bedpe}}"
-
-
-rule call_loops_mustache:
-    input:
-        f"{loop_folder}/Loops_mustache_{{sample}}_{{resolution}}.bedpe_tmp",
-    output:
-        f"{loop_folder}/Loops_mustache_{{sample}}_{{resolution,[0-9]+}}.bedpe",
-    shell:
-        """TAB=$(printf '\t') && cat {input} | sed "1s/.*/chrom1${{TAB}}start1${{TAB}}end1${{TAB}}chrom2${{TAB}}start2${{TAB}}end2${{TAB}}FDR${{TAB}}detection_scale/" > {output}"""
-
-
-rule _call_loops_mustache:
-    input:
-        cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
-    output:
-        f"{loop_folder}/Loops_mustache_{{sample}}_{{resolution,[0-9]+}}.bedpe_tmp",
-    threads: 4
-    params:
-        args=config["call_dots"]["methods"]["mustache"]["extra"],
-        dist=config["call_dots"]["methods"]["mustache"]["max_dist"],
-    resources:
-        mem_mb=lambda wildcards, threads: threads * 16 * 1024,
-        runtime=24 * 60,
-    conda:
-        "envs/mustache_env.yml"
-    shell:
-        f"python3 -m mustache -p {{threads}} -f {{input.cooler}} -r {{wildcards.resolution}} "
-        f"-d {{params.dist}} {{params.args}} -o {{output}}"
-
-
-rule make_differential_insulation:
-    input:
-        insulation_WT=(
-            f"{insulation_folder}/{{sampleWT}}_{{resolution}}.insulation.tsv"
-        ),
-        insulation_KO=(
-            f"{insulation_folder}/{{sampleKO}}_{{resolution}}.insulation.tsv"
-        ),
-    output:
-        f"{boundary_folder}/Insulation_{{sampleWT}}_not_{{sampleKO}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.bed",
-    threads: 1
-    resources:
-        mem_mb=1024,
-        runtime=60,
-    run:
-        insWT = pd.read_csv(input.insulation_WT, sep="\t")
-        insWT = insWT[~insWT["is_bad_bin"]].drop(columns=["is_bad_bin"])
-        insKO = pd.read_csv(input.insulation_KO, sep="\t")
-        insKO = insKO[~insKO["is_bad_bin"]].drop(columns=["is_bad_bin"])
-        ins = pd.merge(
-            insWT, insKO, suffixes=("WT", "KO"), on=["chrom", "start", "end"]
-        )
-        diff_ins = ins[
-            (  # Boundary much stronger in WT vs KO
-                ins[f"boundary_strength_{wildcards.window}WT"]
-                / ins[f"boundary_strength_{wildcards.window}KO"]
-                >= config["compare_boundaries"]["fold_change_threshold"]
-            )
-            | (  # OR there is a strong boundary in WT and not in KO
-                ins[f"is_boundary_{wildcards.window}WT"]
-                & ~ins[f"is_boundary_{wildcards.window}KO"]
-            )
-        ]
-        diff_ins[["chrom", "start", "end"]].to_csv(
-            output[0], header=False, index=False, sep="\t"
-        )
-
-
-rule make_tads:
-    input:
-        insulation=(f"{insulation_folder}/{{sample}}_{{resolution}}.insulation.tsv"),
-    output:
-        f"{tad_folder}/TADs_{{sample}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.bed",
-    threads: 1
-    resources:
-        mem_mb=1024,
-        runtime=60,
-    run:
-        ins = pd.read_csv(input.insulation, sep="\t")
-        tads = bioframe.merge(ins[ins[f"is_boundary_{wildcards.window}"] == False])
-
-        tads = tads[
-            (tads["end"] - tads["start"]) <= config["call_TADs"]["max_tad_length"]
-        ].reset_index(drop=True)
-        tads.to_csv(output[0], header=False, index=False, sep="\t")
-
-
-rule make_insulation:
-    input:
-        cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
-        view=lambda wildcards: config["view"],
-    output:
-        f"{insulation_folder}/{{sample}}_{{resolution,[0-9]+}}.insulation.tsv",
-    params:
-        window=lambda wildcards: config["insulation"]["resolutions"][
-            int(wildcards.resolution)
-        ],
-        extra=lambda wildcards: config["insulation"].get("extra", ""),
-    threads: 4
-    resources:
-        mem_mb=32 * 1024,
-        runtime=240,
-    wrapper:
-        "v1.20.0/bio/cooltools/insulation"
 
 
 include: "rules/pentads.smk"
