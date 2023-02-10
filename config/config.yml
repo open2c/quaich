@@ -18,10 +18,14 @@ fields_to_match: null
 # comparisons
 fields_to_differ:
     cell_type: hESCs
+
 # Annotations file with two columns: annotation name ("bedname") and "file" (URLs or local file)
-# Downloaded bed files will be stored in beds_folder
+# Downloaded bed files will be stored in beds_folder.
+# Provide nothing here if you don't want to use any annotations.
 annotations: config/annotations.tsv
+
 # Rules about correpondence between samples and annotations can be specified here
+# Provide nothing here if all annotations apply to all samples.
 samples_annotations_combinations: config/samples_annotations.tsv
 
 # folder definition is optional
@@ -113,7 +117,7 @@ pileups:
         local_rescaled: '--local --rescale --rescale_pad 1'
         by_strand_by_distance: "--by_strand --by_distance"
         by_strand_local: "--by_strand --local"
-        by_strand_distal: "--by_strand --maxdist 1000000"
+        by_strand_distal: "--by_strand --subset 10000 --maxdist 1000000"
         by_window_short_range: "--by_window --subset 1000 --maxdist 2000000"
         by_window_long_range:  "--by_window --subset 1000 --mindist 2000000"
 

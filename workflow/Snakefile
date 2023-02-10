@@ -78,9 +78,23 @@ def will_download(link):
     return False if parsed_path.scheme == "" else True
 
 
-samples_df = pd.read_csv(
-    config["samples"], sep="\t", header=0, comment="#", dtype={"do_dots": bool}
-)
+try:
+    samples_df = pd.read_csv(
+        config["samples"],
+        sep="\t",
+        header=0,
+        comment="#",
+        dtype={"do_dots": bool, "do_tads": bool},
+    )
+except:
+    raise ValueError("Could not read file with samples, please ensure it exists")
+if "sample" not in samples_df.columns:
+    raise ValueError(
+        'Column "sample" has to be in the file with description of samples'
+    )
+if "file" not in samples_df.columns:
+    raise ValueError('Column "file" has to be in the file with description of samples')
+
 samples_df = samples_df.fillna(value=False)
 samples_df.loc[:, "will_download"] = samples_df.file.apply(will_download)
 samples_df.loc[:, "local_path"] = samples_df.apply(
@@ -140,14 +154,20 @@ local_bedpe_names = {
     for bedpefile in bedpefiles_local
 }
 
-bed_df = pd.read_csv(config["annotations"], sep="\t", header=0, comment="#")
-bed_df.loc[:, "will_download"] = bed_df.file.apply(will_download)
-bed_df.loc[:, "local_path"] = bed_df.apply(
-    lambda x: make_local_path(x.bedname, x.format) if x.will_download else x.file,
-    axis=1,
-    result_type="reduce",
-)
-bed_df = bed_df.set_index("bedname").replace("-", np.nan)
+if config["annotations"]:
+    bed_df = pd.read_csv(config["annotations"], sep="\t", header=0, comment="#")
+    bed_df.loc[:, "will_download"] = bed_df.file.apply(will_download)
+    bed_df.loc[:, "local_path"] = bed_df.apply(
+        lambda x: make_local_path(x.bedname, x.format) if x.will_download else x.file,
+        axis=1,
+        result_type="reduce",
+    )
+    bed_df = bed_df.set_index("bedname").replace("-", np.nan)
+else:
+    bed_df = pd.DataFrame(
+        columns=["bedname", "file", "format", "will_download", "local_path"]
+        + list(config["pileups"]["arguments"])
+    )
 
 pileup_params = config["pileups"]["arguments"]
 
@@ -164,13 +184,18 @@ bedfiles = list(bedfiles_dict.keys())
 bedtype_dict = dict(bed_df["format"])
 # bedpe_pileups_mindist, bedpe_pileups_maxdist = config['bedpe_pileups_distance_limits']
 
-samples_annotations = ~pd.read_csv(
-    config["samples_annotations_combinations"],
-    sep="\t",
-    header=0,
-    index_col=0,
-    comment="#",
-).isna()
+if config["samples_annotations_combinations"]:
+    samples_annotations = ~pd.read_csv(
+        config["samples_annotations_combinations"],
+        sep="\t",
+        header=0,
+        index_col=0,
+        comment="#",
+    ).isna()
+else:
+    samples_annotations = pd.DataFrame(
+        np.ones((len(samples), len(bedfiles))), index=samples, columns=bedfiles
+    ).astype(bool)
 
 ### Data resolutions
 if config["eigenvector"]["do"]:
