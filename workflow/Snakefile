@@ -87,7 +87,9 @@ try:
         dtype={"do_dots": bool, "do_tads": bool},
     )
 except:
-    raise ValueError("Could not read file with samples, please ensure it exists")
+    raise ValueError(
+        "Could not read file with samples, please ensure it exists and has data in it"
+    )
 if "sample" not in samples_df.columns:
     raise ValueError(
         'Column "sample" has to be in the file with description of samples'
@@ -155,7 +157,12 @@ local_bedpe_names = {
 }
 
 if config["annotations"]:
-    bed_df = pd.read_csv(config["annotations"], sep="\t", header=0, comment="#")
+    try:
+        bed_df = pd.read_csv(config["annotations"], sep="\t", header=0, comment="#")
+    except:
+        raise ValueError(
+            "Could not read file with samples, please ensure it exists and has data in it"
+        )
     bed_df.loc[:, "will_download"] = bed_df.file.apply(will_download)
     bed_df.loc[:, "local_path"] = bed_df.apply(
         lambda x: make_local_path(x.bedname, x.format) if x.will_download else x.file,
@@ -185,13 +192,19 @@ bedtype_dict = dict(bed_df["format"])
 # bedpe_pileups_mindist, bedpe_pileups_maxdist = config['bedpe_pileups_distance_limits']
 
 if config["samples_annotations_combinations"]:
-    samples_annotations = ~pd.read_csv(
-        config["samples_annotations_combinations"],
-        sep="\t",
-        header=0,
-        index_col=0,
-        comment="#",
-    ).isna()
+    try:
+        samples_annotations = ~pd.read_csv(
+            config["samples_annotations_combinations"],
+            sep="\t",
+            header=0,
+            index_col=0,
+            comment="#",
+        ).isna()
+    except:
+        raise ValueError(
+            "Could not read file with sample-annotation combinations,"
+            "please ensure it exists and has data in it"
+        )
 else:
     samples_annotations = pd.DataFrame(
         np.ones((len(samples), len(bedfiles))), index=samples, columns=bedfiles
