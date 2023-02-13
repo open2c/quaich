@@ -94,7 +94,7 @@ def get_file(file, output):
         output_file = download_file(file, output)
     else:
         raise Exception(
-            f"Unable to download from: {file}\nScheme {parsed_url.scheme} is not supported"
+            f"Unable to download from: {file}\nScheme {parsed_path.scheme} is not supported"
         )
     if output_file.endswith(".gz"):
         shell(f"gzip -d {output_file}")
@@ -102,15 +102,15 @@ def get_file(file, output):
 
 rule download_file:
     output:
-        f"{{folder,({coolers_folder}|{beds_folder})}}/{{filename}}.{{ext,(bed|bedpe|mcool)}}",
+        f"{{folder,({coolers_folder}|{beds_folder}|{path.relpath(coolers_folder)}|{path.relpath(beds_folder)})}}/{{filename}}.{{ext,(bed|bedpe|mcool)}}",
     threads: 1
     resources:
         mem_mb=256,
         runtime=60,
     params:
-        file=lambda wildcards, output: coollinks_dict[output[0]]
+        file=lambda wildcards, output: coollinks_dict[path.abspath(output[0])]
         if wildcards.ext == "mcool"
-        else bedlinks_dict[output[0]],
+        else bedlinks_dict[path.abspath(output[0])],
     run:
         if not path.exists(params.file):
             get_file(str(params.file), output[0])

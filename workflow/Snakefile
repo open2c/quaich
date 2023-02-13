@@ -120,7 +120,10 @@ samples_df = samples_df.set_index("sample")
 
 samples = list(samples_df.index)
 coollinks_dict = dict(
-    samples_df[["local_path", "file"]].to_numpy()
+    zip(
+        samples_df["local_path"],
+        samples_df["file"].apply(lambda x: x if will_download(x) else path.abspath(x)),
+    )
 )  # dict with cools to be downloaded
 coolfiles_dict = dict(samples_df["local_path"])
 
@@ -197,9 +200,12 @@ pileup_params = config["pileups"]["arguments"]
 bed_df[list(pileup_params.keys())] = ~bed_df[list(pileup_params.keys())].isna()
 
 bedlinks_dict = dict(
-    zip(bed_df["local_path"], bed_df["file"].apply(path.abspath))
+    zip(
+        bed_df["local_path"],
+        bed_df["file"].apply(lambda x: x if will_download(x) else path.abspath(x)),
+    )
 )  # dict with beds to be downloaded
-print(bedlinks_dict)
+
 bedfiles_dict = dict(bed_df["local_path"])
 bedfiles_dict.update(local_bed_names)
 bedfiles_dict.update(local_bedpe_names)
