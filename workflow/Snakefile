@@ -20,8 +20,7 @@ localrules:
     make_differential_insulation,
     make_tads,
     call_dots_mustache,
-    get_bed_data,
-    get_cool_data,
+    download_file,
 
 
 ###### Read config parameters #######
