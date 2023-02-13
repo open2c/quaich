@@ -7,8 +7,6 @@ import cooler
 import numpy as np
 import pandas as pd
 import bioframe
-import toolz
-from cooltools.lib.io import read_viewframe_from_file
 from scipy import spatial
 
 
@@ -545,25 +543,3 @@ include: "rules/insulation_tads.smk"
 include: "rules/expected.smk"
 include: "rules/saddle.smk"
 include: "rules/pileups.smk"
-
-
-rule download_file:
-    output:
-        "{filename}.{ext,\b(bed|bedpe|mcool)\b}",
-    threads: 1
-    resources:
-        mem_mb=256,
-        runtime=60,
-    params:
-        file=lambda wildcards, output: bedlinks_dict[output[0]]
-        if wildcards.ext in ["bed", "bedpe"]
-        else coollinks_dict[output[0]],
-    run:
-        if params.file != output[0]:
-            get_file(str(params.file), output[0])
-        if wildcards.ext == "mcool":
-            verify_view_cooler(
-                cooler.Cooler(
-                    f"{output[0]}::{cooler.fileops.list_coolers(output[0])[0]}"
-                )
-            )

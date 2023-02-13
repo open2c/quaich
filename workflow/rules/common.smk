@@ -1,3 +1,7 @@
+import toolz
+from cooltools.lib.io import read_viewframe_from_file
+
+
 def get_files(folder, extension):
     files = list(map(path.basename, glob(f"{folder}/*{extension}")))
     return files
@@ -94,3 +98,25 @@ def get_file(file, output):
         )
     if output_file.endswith(".gz"):
         shell(f"gzip -d {output_file}")
+
+
+rule download_file:
+    output:
+        "{filename}.{ext,\b(bed|bedpe|mcool)\b}",
+    threads: 1
+    resources:
+        mem_mb=256,
+        runtime=60,
+    params:
+        file=lambda wildcards, output: bedlinks_dict[output[0]]
+        if wildcards.ext in ["bed", "bedpe"]
+        else coollinks_dict[output[0]],
+    run:
+        if params.file != output[0]:
+            get_file(str(params.file), output[0])
+        if wildcards.ext == "mcool":
+            verify_view_cooler(
+                cooler.Cooler(
+                    f"{output[0]}::{cooler.fileops.list_coolers(output[0])[0]}"
+                )
+            )
