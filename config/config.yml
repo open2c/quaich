@@ -101,11 +101,6 @@ pileups:
     do: True
     resolutions:
         - 10000
-    distance_limits:
-        - 500000
-        - 1000000
-        # - 12500
-        # - 102400000
     shifts: 0
     expected: True
     ooe: True #Only applies when expected is True

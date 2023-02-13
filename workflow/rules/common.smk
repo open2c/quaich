@@ -102,17 +102,17 @@ def get_file(file, output):
 
 rule download_file:
     output:
-        "{filename}.{ext,\b(bed|bedpe|mcool)\b}",
+        f"{{folder,({coolers_folder}|{beds_folder})}}/{{filename}}.{{ext,(bed|bedpe|mcool)}}",
     threads: 1
     resources:
         mem_mb=256,
         runtime=60,
     params:
-        file=lambda wildcards, output: bedlinks_dict[output[0]]
-        if wildcards.ext in ["bed", "bedpe"]
-        else coollinks_dict[output[0]],
+        file=lambda wildcards, output: coollinks_dict[output[0]]
+        if wildcards.ext == "mcool"
+        else bedlinks_dict[output[0]],
     run:
-        if params.file != output[0]:
+        if not path.exists(params.file):
             get_file(str(params.file), output[0])
         if wildcards.ext == "mcool":
             verify_view_cooler(
