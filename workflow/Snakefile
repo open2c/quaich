@@ -139,7 +139,7 @@ sample_pairs = []
 
 if config["fields_to_differ"] is not None:
     for name, group in samples_df.groupby(
-        lambda x: config["fields_to_match"]
+        lambda x: tuple(config["fields_to_match"])
         if config["fields_to_match"] is not None
         else True
     ):
@@ -178,7 +178,7 @@ if config["annotations"]:
         bed_df = pd.read_csv(config["annotations"], sep="\t", header=0, comment="#")
     except:
         raise ValueError(
-            "Could not read file with samples, please ensure it exists and has data in it"
+            "Could not read file with annotations, please ensure it exists and has data in it"
         )
     bed_df.loc[:, "will_download"] = bed_df.file.apply(will_download)
     bed_df.loc[:, "local_path"] = bed_df.apply(
@@ -270,7 +270,11 @@ if config["insulation"]["do"] and config["call_TADs"]["do"]:
 elif config["call_TADs"]["do"]:
     config["insulation"]["resolutions"] = config["call_TADs"]["resolutions"]
 
-if config["insulation"]["do"]:
+if (
+    config["insulation"]["do"]
+    or config["call_TADs"]["do"]
+    or config["compare_boundaries"]["do"]
+):
     insul_res_win_comb = []
     for resolution in config["insulation"]["resolutions"]:
         for win in config["insulation"]["resolutions"][resolution]:
@@ -379,7 +383,9 @@ tads_pileups = (
         tad_res_win=tad_res_win_comb,
         norm=pileup_norms,
     )
-    if config["call_TADs"]["do"] and config["call_TADs"]["pileup"]
+    if config["call_TADs"]["do"]
+    and config["call_TADs"]["pileup"]
+    and config["pileups"]["do"]
     else []
 )
 
@@ -404,7 +410,7 @@ if dot_methods:
             norm=pileup_norms,
             mode=["distal", "by_distance"],
         )
-        if config["call_dots"]["pileup"]
+        if config["call_dots"]["pileup"] and config["pileups"]["do"]
         else []
     )
 else:
