@@ -116,19 +116,19 @@ Activate the conda environment:
 
 Test your configuration by performing a dry-run via
 
-    snakemake --use-conda --configfile config/config.yml -n
+    snakemake --use-conda --configfile config/test_config.yml -n
 
 Execute the workflow locally via
 
-    snakemake --use-conda --configfile config/config.yml --cores $N
+    snakemake --use-conda --configfile config/test_config.yml --cores $N
 
 using `$N` cores or run it in a cluster environment via
 
-    snakemake --use-conda --configfile config/config.yml --cluster qsub --jobs 100
+    snakemake --use-conda --configfile config/test_config.yml --cluster qsub --jobs 100
 
 or
 
-    snakemake --use-conda --configfile config/config.yml --drmaa --jobs 100
+    snakemake --use-conda --configfile config/test_config.yml --drmaa --jobs 100
 
 For slurm, consider using the following arguments:
     
@@ -138,7 +138,7 @@ Alternatively, you might want to look into snakemake profiles already available 
 
 <!-- If you not only want to fix the software stack but also the underlying OS, use
 
-    snakemake --use-conda --configfile config/config.yml --use-singularity
+    snakemake --use-conda --configfile config/test_config.yml --use-singularity
 
 in combination with any of the modes above. *(Not yet available)* -->
 See the [Snakemake documentation](https://snakemake.readthedocs.io/en/stable/executable.html) for further details.
