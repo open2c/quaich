@@ -565,6 +565,8 @@ rule all:
         lambda wildcards: dots_pileups,
         lambda wildcards: beds_pileups,
         lambda wildcards: saddles,
+        lambda wildcards: pentads,
+        lambda wildcards: diff_pentads,
 
 
 include: "rules/pentads.smk"
