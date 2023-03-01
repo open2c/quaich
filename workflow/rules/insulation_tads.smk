@@ -10,7 +10,7 @@ rule make_differential_insulation:
             f"{insulation_folder}/{{sampleKO}}_{{resolution}}.insulation.tsv"
         ),
     output:
-        f"{boundary_folder}/Diff_boundaries_{{sampleKO}}_vs_{{sampleWT}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.bed",
+        f"{boundaries_folder}/Diff_boundaries_{{sampleKO}}_vs_{{sampleWT}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.bed",
     threads: 1
     resources:
         mem_mb=1024,
@@ -43,7 +43,7 @@ rule make_tads:
     input:
         insulation=(f"{insulation_folder}/{{sample}}_{{resolution}}.insulation.tsv"),
     output:
-        f"{tad_folder}/TADs_{{sample}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.bed",
+        f"{tads_folder}/TADs_{{sample}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.bed",
     threads: 1
     resources:
         mem_mb=1024,
@@ -62,7 +62,7 @@ rule save_strong_boundaries:
     input:
         insulation=(f"{insulation_folder}/{{sample}}_{{resolution}}.insulation.tsv"),
     output:
-        f"{boundary_folder}/Boundaries_{{sample}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.bed",
+        f"{boundaries_folder}/Boundaries_{{sample}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.bed",
     threads: 1
     resources:
         mem_mb=1024,

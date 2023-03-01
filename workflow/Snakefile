@@ -42,33 +42,52 @@ expected_folder = path.abspath(
 pileups_folder = path.abspath(
     path.normpath(config.get("pileups_folder", path.join(project_folder, "pileups")))
 )
+
 eigenvectors_folder = path.abspath(
     path.normpath(
         config.get("eigenvectors_folder", path.join(project_folder, "eigenvectors"))
     )
 )
-saddles_folder = path.abspath(
-    path.normpath(config.get("saddles_folder", path.join(project_folder, "saddles")))
+eig_profiles_folder = path.abspath(
+    path.normpath(
+        config.get(
+            "eig_profiles_folder",
+            path.join(eigenvectors_folder, "eig_profiles"),
+        )
+    )
 )
+saddles_folder = path.abspath(
+    path.normpath(
+        config.get("saddles_folder", path.join(eigenvectors_folder, "saddles"))
+    )
+)
+pentads_folder = path.abspath(
+    path.normpath(
+        config.get("pentads_folder", path.join(eigenvectors_folder, "pentads"))
+    )
+)
+
 insulation_folder = path.abspath(
     path.normpath(
         config.get("insulation_folder", path.join(project_folder, "insulation"))
     )
 )
-tad_folder = path.abspath(
-    path.normpath(config.get("tad_folder", path.join(project_folder, "tads")))
+tads_folder = path.abspath(
+    path.normpath(config.get("tads_folder", path.join(insulation_folder, "tads")))
 )
-tad_folder_name = path.basename(tad_folder)
-loop_folder = path.abspath(
-    path.normpath(config.get("dot_folder", path.join(project_folder, "dots")))
-)
-loop_folder_name = path.basename(loop_folder)
-boundary_folder = path.abspath(
+tads_folder_name = path.basename(tads_folder)
+
+boundaries_folder = path.abspath(
     path.normpath(
-        config.get("boundary_folder", path.join(project_folder, "boundaries"))
+        config.get("boundaries_folder", path.join(insulation_folder, "boundaries"))
     )
 )
-boundary_folder_name = path.basename(boundary_folder)
+boundaries_folder_name = path.basename(boundaries_folder)
+
+dots_folder = path.abspath(
+    path.normpath(config.get("dots_folder", path.join(project_folder, "dots")))
+)
+dots_folder_name = path.basename(dots_folder)
 
 
 include: "rules/common.smk"
@@ -234,11 +253,11 @@ else:
     ).astype(bool)
 
 ### Data resolutions
-if config["eigenvector"]["do"]:
-    eigenvector_resolutions = config["eigenvector"]["resolutions"]
+if config["eigenvectors"]["do"]:
+    eigenvector_resolutions = config["eigenvectors"]["resolutions"]
 
-if config["saddle"]["do"]:
-    saddle_mindist, saddle_maxdist = config["saddle"]["distance_limits"]
+if config["saddles"]["do"]:
+    saddle_mindist, saddle_maxdist = config["saddles"]["distance_limits"]
     saddle_mindists = [
         int(saddle_mindist * 2**i)
         for i in np.arange(0, np.log2(saddle_maxdist / saddle_mindist))
@@ -263,16 +282,16 @@ if config["pileups"]["do"]:
     # separations = [f"_dist_{mindist}-{mindist*2}" for mindist in mindists]
 
 
-if config["insulation"]["do"] and config["call_TADs"]["do"]:
+if config["insulation"]["do"] and config["TADs"]["do"]:
     config["insulation"]["resolutions"] = merge_dicts(
-        config["insulation"]["resolutions"], config["call_TADs"]["resolutions"]
+        config["insulation"]["resolutions"], config["TADs"]["resolutions"]
     )
-elif config["call_TADs"]["do"]:
-    config["insulation"]["resolutions"] = config["call_TADs"]["resolutions"]
+elif config["TADs"]["do"]:
+    config["insulation"]["resolutions"] = config["TADs"]["resolutions"]
 
 if (
     config["insulation"]["do"]
-    or config["call_TADs"]["do"]
+    or config["TADs"]["do"]
     or config["compare_boundaries"]["do"]
 ):
     insul_res_win_comb = []
@@ -280,10 +299,10 @@ if (
         for win in config["insulation"]["resolutions"][resolution]:
             insul_res_win_comb.append(f"{resolution}_{win}")
 
-if config["call_TADs"]["do"]:
+if config["TADs"]["do"]:
     tad_res_win_comb = []
-    for resolution in config["call_TADs"]["resolutions"]:
-        for win in config["call_TADs"]["resolutions"][resolution]:
+    for resolution in config["TADs"]["resolutions"]:
+        for win in config["TADs"]["resolutions"][resolution]:
             tad_res_win_comb.append(f"{resolution}_{win}")
 
 # chroms = cooler.Cooler(f'{coolers_folder}/{coolfiles[0]}::resolutions/{resolutions[0]}').chroms()[:]
@@ -315,23 +334,23 @@ insulation = (
         sample=samples,
         resolution=config["insulation"]["resolutions"].keys(),
     )
-    if (config["insulation"]["do"] or config["call_TADs"]["do"])
+    if (config["insulation"]["do"] or config["TADs"]["do"])
     else []
 )
 
 boundaries = (
     expand(
-        f"{boundary_folder}/Boundaries_{{sample}}_{{resolution_window}}.bed",
+        f"{boundaries_folder}/Boundaries_{{sample}}_{{resolution_window}}.bed",
         sample=samples,
         resolution_window=insul_res_win_comb,
     )
-    if (config["insulation"]["do"] or config["call_TADs"]["do"])
+    if (config["insulation"]["do"] or config["TADs"]["do"])
     else []
 )
 
 boundaries_pileups = (
     expand(
-        f"{pileups_folder}/{boundary_folder_name}/{{sample}}-{{resolution}}_over_Boundaries_{{sample}}_{{resolution_window}}_{{norm}}_local.clpy",
+        f"{pileups_folder}/{boundaries_folder_name}/{{sample}}-{{resolution}}_over_Boundaries_{{sample}}_{{resolution_window}}_{{norm}}_local.clpy",
         sample=samples,
         resolution=pileup_resolutions,
         resolution_window=insul_res_win_comb,
@@ -343,7 +362,7 @@ boundaries_pileups = (
 
 diff_boundaries = (
     expand(
-        f"{boundary_folder}/Diff_boundaries_{{comparison}}_{{resolution_window}}.bed",
+        f"{boundaries_folder}/Diff_boundaries_{{comparison}}_{{resolution_window}}.bed",
         comparison=sample_pairs_string_with_reverse,
         resolution_window=insul_res_win_comb,
     )
@@ -352,7 +371,7 @@ diff_boundaries = (
 )
 diff_boundaries_pileups = (
     expand(
-        f"{pileups_folder}/{boundary_folder_name}/{{sample}}-{{resolution}}_over_Diff_boundaries_{{comparison}}_{{resolution_window}}_{{norm}}_local.clpy",
+        f"{pileups_folder}/{boundaries_folder_name}/{{sample}}-{{resolution}}_over_Diff_boundaries_{{comparison}}_{{resolution_window}}_{{norm}}_local.clpy",
         sample=samples,
         resolution=pileup_resolutions,
         comparison=sample_pairs_string_with_reverse,
@@ -365,44 +384,42 @@ diff_boundaries_pileups = (
 
 tads = (
     expand(
-        f"{tad_folder}/TADs_{{sample}}_{{tad_res_win}}.bed",
+        f"{tads_folder}/TADs_{{sample}}_{{tad_res_win}}.bed",
         sample=samples_df.index[samples_df["do_tads"]],
         tad_res_win=tad_res_win_comb,
     )
-    if config["call_TADs"]["do"]
+    if config["TADs"]["do"]
     else []
 )
 
 
 tads_pileups = (
     expand(
-        f"{pileups_folder}/{tad_folder_name}/{{sample}}-{{resolution}}_over_TADs_{{sampleTADs}}_{{tad_res_win}}_{{norm}}_local_rescaled.clpy",
+        f"{pileups_folder}/{tads_folder_name}/{{sample}}-{{resolution}}_over_TADs_{{sampleTADs}}_{{tad_res_win}}_{{norm}}_local_rescaled.clpy",
         sample=samples,
         resolution=pileup_resolutions,
         sampleTADs=samples_df.index[samples_df["do_tads"]],
         tad_res_win=tad_res_win_comb,
         norm=pileup_norms,
     )
-    if config["call_TADs"]["do"]
-    and config["call_TADs"]["pileup"]
-    and config["pileups"]["do"]
+    if config["TADs"]["do"] and config["TADs"]["pileup"] and config["pileups"]["do"]
     else []
 )
 
 # Dots and dot pileups
 dot_methods = [
-    m for m in config["call_dots"]["methods"] if config["call_dots"]["methods"][m]["do"]
+    m for m in config["dots"]["methods"] if config["dots"]["methods"][m]["do"]
 ]
 if dot_methods:
     dots = expand(
-        f"{loop_folder}/merged_resolutions/Dots_{{method}}_{{sampleDots}}.bedpe",
+        f"{dots_folder}/merged_resolutions/Dots_{{method}}_{{sampleDots}}.bedpe",
         method=dot_methods,
         sampleDots=samples_df.index[samples_df["do_dots"]],
     )
 
     dots_pileups = (
         expand(
-            f"{pileups_folder}/{loop_folder_name}/{{sample}}-{{resolution}}_over_Dots_{{method}}_{{sampleDots}}_{{norm}}_{{mode}}.clpy",
+            f"{pileups_folder}/{dots_folder_name}/{{sample}}-{{resolution}}_over_Dots_{{method}}_{{sampleDots}}_{{norm}}_{{mode}}.clpy",
             sample=samples,
             resolution=pileup_resolutions,
             method=dot_methods,
@@ -410,7 +427,7 @@ if dot_methods:
             norm=pileup_norms,
             mode=["distal", "by_distance"],
         )
-        if config["call_dots"]["pileup"] and config["pileups"]["do"]
+        if config["dots"]["pileup"] and config["pileups"]["do"]
         else []
     )
 else:
@@ -431,6 +448,9 @@ for file in tads + diff_boundaries:
 beds_pileups = []
 if config["pileups"]["do"]:
     for bedname, row in bed_df.iterrows():
+        folder = (
+            beds_folder_name if bedtype_dict[bedname] == "bed" else bedpes_folder_name
+        )
         modes = []
         for mode in pileup_params.keys():
             if row[mode]:
@@ -445,11 +465,23 @@ if config["pileups"]["do"]:
             ):
                 continue
             beds_pileups += expand(
-                f"{pileups_folder}/{beds_folder_name}/{sample}-{{resolution}}_over_{bedname}_{{norm}}_{{mode}}.clpy",
+                f"{pileups_folder}/{folder}/{sample}-{{resolution}}_over_{bedname}_{{norm}}_{{mode}}.clpy",
                 resolution=pileup_resolutions,
                 norm=pileup_norms,
                 mode=modes,
             )
+
+eigenvectors = (
+    expand(
+        f"{eigenvectors_folder}/{eig_profiles_folder}/{{sample}}_{{resolution}}_eigenvectors.trans.{{ext}}",
+        sample=samples,
+        resolution=eigenvector_resolutions,
+        mode=["cis"],  # Add option to do trans in the future
+        ext=["vecs.tsv", "vecs.lam", "bw"],
+    )
+    if config["eigenvectors"]["do"]
+    else []
+)
 
 # Saddles and compartment beds
 saddles = (
@@ -457,11 +489,11 @@ saddles = (
         f"{saddles_folder}/{{sample}}_{{resolution}}_over_{{sample}}_eig_{{bins}}{{dist}}.{{ending}}",
         sample=samples,
         resolution=eigenvector_resolutions,
-        bins=config["saddle"]["bins"],
+        bins=config["saddles"]["bins"],
         dist=saddle_separations + [""],
         ending=["saddledump.npz", "digitized.tsv"],
     )
-    if config["saddle"]["do"]
+    if config["saddles"]["do"]
     else []
 )
 for sample1, sample2 in sample_pairs:
@@ -469,11 +501,11 @@ for sample1, sample2 in sample_pairs:
         expand(
             f"{saddles_folder}/{sample1}_{{resolution}}_over_{sample2}_eig_{{bins}}{{dist}}.{{ending}}",
             resolution=eigenvector_resolutions,
-            bins=config["saddle"]["bins"],
+            bins=config["saddles"]["bins"],
             dist=saddle_separations + [""],
             ending=["saddledump.npz", "digitized.tsv"],
         )
-        if config["saddle"]["do"]
+        if config["saddles"]["do"]
         else []
     )
 
@@ -484,7 +516,7 @@ compartments = (
         resolution=eigenvector_resolutions,
         mode=["cis"],  # Add option to do trans in the future
     )
-    if config["eigenvector"]["save_compartment_beds"]
+    if config["eigenvectors"]["save_compartment_beds"]
     else []
 )
 

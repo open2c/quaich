@@ -37,14 +37,21 @@ bedpes_folder: inputs/bedpes
 coolers_folder: inputs/coolers
 
 project_folder: results
+
 expected_folder: results/expected
 pileups_folder: results/pileups
+
 eigenvectors_folder: results/eigenvectors
-saddles_folder: results/saddles
+eig_profiles_folder: results/eigenvectors/eig_profiles
+compartments_folder: results/eigenvectors/compartments
+saddles_folder: results/eigenvectors/saddles
+pentads_folder: results/eigenvectors/pentads
+
 insulation_folder: results/insulation
-tad_folder: results/tads
-dot_folder: results/dots
-boundary_folder: results/boundaries
+tads_folder: results/insulation/tads
+boundaries_folder: results/insulation/boundaries
+
+dots_folder: results/dots
 
 expected:
     do: True #If False, still will calculate them when needed by other rules
@@ -60,7 +67,7 @@ expected:
 
 # Parameters for calculation of the eigenvectors (cooltools eigs-cis or eigs-trans)
 # They are phased using GC content whcih is automatically calculated from the genome .fastqs
-eigenvector:
+eigenvectors:
     do: True
     cis: True
     trans: True
@@ -71,7 +78,7 @@ eigenvector:
                                  # with coordinates of A and B compartments
 
 # Parameters for saddles - a way to quantify global compartment structure (cooltools saddle)
-saddle:
+saddles:
     do: True
     bins:
         - 100
@@ -117,7 +124,7 @@ pileups:
         by_window_long_range:  "--by_window --subset 1000 --mindist 2000000"
 
 # Parameters for calling dots/loops, using different methods
-call_dots:
+dots:
     methods:
         cooltools:
             do: True
@@ -158,7 +165,7 @@ compare_boundaries:
     pileup: True
 
 # Combine neighbouring strong insulation score boundaries into TADs
-call_TADs: 
+TADs: 
     do: True
     resolutions:
         10000: # What window sizes to do for what resolution

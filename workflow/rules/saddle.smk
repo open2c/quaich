@@ -2,7 +2,7 @@ rule make_saddles:
     input:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
         track=(
-            f"{eigenvectors_folder}/{{sampleTrack}}_{{resolution}}_eigenvectors.cis.vecs.tsv"
+            f"{eig_profiles_folder}/{{sampleTrack}}_{{resolution}}_eigenvectors.cis.vecs.tsv"
         ),
         expected=f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
         view=lambda wildcards: config["view"],
@@ -12,12 +12,12 @@ rule make_saddles:
     params:
         extra=lambda wildcards: " ".join(
             [
-                config["saddle"]["extra"],
+                config["saddles"]["extra"],
                 split_dist(wildcards.dist, "--min-dist", "--max-dist"),
                 f"--n-bins {wildcards.bins}",
             ]
         ),
-        range=lambda wildcards: config["saddle"]["range"],
+        range=lambda wildcards: config["saddles"]["range"],
     threads: 1
     resources:
         mem_mb=8 * 1024,

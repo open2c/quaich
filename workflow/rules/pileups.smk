@@ -12,7 +12,7 @@ rule make_pileups:
         norm="(expected|nonorm|[0-9]+\-shifts)",
     params:
         features_format=lambda wildcards: bedtype_dict[wildcards.features],
-        extra=lambda wildcards: f"{pileup_params[wildcards.extra]} {get_shifts(wildcards.norm)}",
+        extra=lambda wildcards: f"{pileup_params[wildcards.extra]} {get_shifts(wildcards.norm)} -l ERROR",
     threads: 4
     resources:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,

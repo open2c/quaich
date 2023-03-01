@@ -51,11 +51,11 @@ def read_dots(f):
 rule merge_dots_across_resolutions:
     input:
         dots=lambda wildcards,: [
-            f"{loop_folder}/Dots_{{method}}_{{sample}}_{resolution}.bedpe"
-            for resolution in config["call_dots"]["resolutions"]
+            f"{dots_folder}/Dots_{{method}}_{{sample}}_{resolution}.bedpe"
+            for resolution in config["dots"]["resolutions"]
         ],
     output:
-        f"{loop_folder}/merged_resolutions/Dots_{{method}}_{{sample}}.bedpe",
+        f"{dots_folder}/merged_resolutions/Dots_{{method}}_{{sample}}.bedpe",
     threads: 1
     resources:
         mem_mb=lambda wildcards, threads: 1024,
@@ -74,10 +74,10 @@ rule call_dots_cooltools:
         expected=f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv",
         view=lambda wildcards: config["view"],
     output:
-        f"{loop_folder}/Dots_cooltools_{{sample}}_{{resolution,[0-9]+}}.bedpe",
+        f"{dots_folder}/Dots_cooltools_{{sample}}_{{resolution,[0-9]+}}.bedpe",
     threads: 4
     params:
-        extra=lambda wildcards: config["call_dots"]["methods"]["cooltools"]["extra"],
+        extra=lambda wildcards: config["dots"]["methods"]["cooltools"]["extra"],
     resources:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
@@ -89,8 +89,8 @@ rule call_dots_chromosight:
     input:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
     output:
-        bedpe=f"{loop_folder}/Dots_chromosight_{{sample}}_{{resolution,[0-9]+}}.bedpe",
-        json=f"{loop_folder}/Dots_chromosight_{{sample}}_{{resolution,[0-9]+}}.json",
+        bedpe=f"{dots_folder}/Dots_chromosight_{{sample}}_{{resolution,[0-9]+}}.bedpe",
+        json=f"{dots_folder}/Dots_chromosight_{{sample}}_{{resolution,[0-9]+}}.json",
     threads: 4
     resources:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
@@ -98,15 +98,15 @@ rule call_dots_chromosight:
     conda:
         "../envs/chromosight_env.yml"
     shell:
-        f"chromosight detect --pattern loops --no-plotting -t {{threads}} {{input.cooler}}::resolutions/{{wildcards.resolution}} {loop_folder}/Dots_chromosight_{{wildcards.sample}}_{{wildcards.resolution}} && "
-        f"mv {loop_folder}/Dots_chromosight_{{wildcards.sample}}_{{wildcards.resolution}}.tsv {{output.bedpe}}"
+        f"chromosight detect --pattern loops --no-plotting -t {{threads}} {{input.cooler}}::resolutions/{{wildcards.resolution}} {dots_folder}/Dots_chromosight_{{wildcards.sample}}_{{wildcards.resolution}} && "
+        f"mv {dots_folder}/Dots_chromosight_{{wildcards.sample}}_{{wildcards.resolution}}.tsv {{output.bedpe}}"
 
 
 rule call_dots_mustache:
     input:
-        f"{loop_folder}/Dots_mustache_{{sample}}_{{resolution}}.bedpe_tmp",
+        f"{dots_folder}/Dots_mustache_{{sample}}_{{resolution}}.bedpe_tmp",
     output:
-        f"{loop_folder}/Dots_mustache_{{sample}}_{{resolution,[0-9]+}}.bedpe",
+        f"{dots_folder}/Dots_mustache_{{sample}}_{{resolution,[0-9]+}}.bedpe",
     shell:
         """TAB=$(printf '\t') && cat {input} | sed "1s/.*/chrom1${{TAB}}start1${{TAB}}end1${{TAB}}chrom2${{TAB}}start2${{TAB}}end2${{TAB}}FDR${{TAB}}detection_scale/" > {output}"""
 
@@ -115,11 +115,11 @@ rule _call_dots_mustache:
     input:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
     output:
-        f"{loop_folder}/Dots_mustache_{{sample}}_{{resolution,[0-9]+}}.bedpe_tmp",
+        f"{dots_folder}/Dots_mustache_{{sample}}_{{resolution,[0-9]+}}.bedpe_tmp",
     threads: 4
     params:
-        args=config["call_dots"]["methods"]["mustache"]["extra"],
-        dist=config["call_dots"]["methods"]["mustache"]["max_dist"],
+        args=config["dots"]["methods"]["mustache"]["extra"],
+        dist=config["dots"]["methods"]["mustache"]["max_dist"],
     resources:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,

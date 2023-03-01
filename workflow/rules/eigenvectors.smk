@@ -1,6 +1,6 @@
 rule make_compartments:
     input:
-        bigwig=f"{eigenvectors_folder}/{{sample}}_{{resolution}}_eigenvectors.{{mode}}.bw",
+        bigwig=f"{eigenvectors_folder}/{eig_profiles_folder}/{{sample}}_{{resolution}}_eigenvectors.{{mode}}.bw",
         view=lambda wildcards: config["view"],
     output:
         compartments=f"{eigenvectors_folder}/compartments/{{sample}}_{{resolution,[0-9]+}}_compartments.{{mode}}.bed",
@@ -24,9 +24,9 @@ rule make_eigenvectors_cis:
             f"{genome}_{{resolution}}_gc.bedgraph",
         ),
     output:
-        vecs=f"{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.vecs.tsv",
-        lam=f"{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.lam.txt",
-        bigwig=f"{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.bw",
+        vecs=f"{eig_profiles_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.vecs.tsv",
+        lam=f"{eig_profiles_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.lam.txt",
+        bigwig=f"{eig_profiles_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.bw",
     params:
         extra="--bigwig",
     threads: 1
@@ -46,9 +46,9 @@ rule make_eigenvectors_trans:
             f"{genome}_{{resolution}}_gc.bedgraph",
         ),
     output:
-        f"{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.trans.vecs.tsv",
-        f"{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.trans.lam.txt",
-        f"{eigenvectors_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.trans.bw",
+        vecs=f"{eig_profiles_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.trans.vecs.tsv",
+        lam=f"{eig_profiles_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.trans.lam.txt",
+        bigwig=f"{eig_profiles_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.trans.bw",
     params:
         track_name_col="GC",
         extra="",
