@@ -10,4 +10,4 @@ dependencies:
   - natsort
   - pip:
     - pomegranate
-    - https://github.com/Phlya/hmm_bigwigs/archive/refs/heads/fix-PR.zip
+    - https://github.com/Phlya/hmm_bigwigs/archive/refs/heads/master.zip
