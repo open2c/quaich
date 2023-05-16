@@ -264,7 +264,12 @@ if config["saddles"]["do"]:
     ]
     saddle_separations = [f"_dist_{mindist}-{mindist*2}" for mindist in saddle_mindists]
 
-if config["pileups"]["do"]:
+if config["pileups"]["do"] or any(
+    [
+        config[key]["pileup"]
+        for key in ("dots", "insulation", "compare_boundaries", "TADs")
+    ]
+):
     shifts = config["pileups"]["shifts"]
     pileup_norms = []
     if shifts > 0:
@@ -516,7 +521,7 @@ compartments = (
         resolution=eigenvector_resolutions,
         mode=["cis"],  # Add option to do trans in the future
     )
-    if config["eigenvectors"]["save_compartment_beds"]
+    if config["eigenvectors"]["do"] and config["eigenvectors"]["save_compartment_beds"]
     else []
 )
 

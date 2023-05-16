@@ -28,22 +28,3 @@ rule make_expected_trans:
         runtime=60,
     wrapper:
         "v1.21.2/bio/cooltools/expected_trans"
-
-
-rule make_bins:
-    input:
-        chromsizes=config["chromsizes"],
-    output:
-        path.join(
-            config["path_genome_folder"],
-            "bins/",
-            f"{genome}_{{resolution,[0-9]+}}_bins.bed",
-        ),
-    threads: 1
-    resources:
-        mem_mb=8 * 1024,
-        runtime=60,
-    params:
-        binsize=lambda wildcards: wildcards["resolution"],
-    wrapper:
-        "v1.21.2/bio/cooltools/genome/binnify"

@@ -53,7 +53,7 @@ rule make_tads:
         tads = bioframe.merge(ins[ins[f"is_boundary_{wildcards.window}"] == False])
 
         tads = tads[
-            (tads["end"] - tads["start"]) <= config["call_TADs"]["max_tad_length"]
+            (tads["end"] - tads["start"]) <= config["TADs"]["max_tad_length"]
         ].reset_index(drop=True)
         tads.to_csv(output[0], header=False, index=False, sep="\t")
 

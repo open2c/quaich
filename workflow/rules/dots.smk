@@ -115,7 +115,7 @@ rule _call_dots_mustache:
     input:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
     output:
-        f"{dots_folder}/Dots_mustache_{{sample}}_{{resolution,[0-9]+}}.bedpe_tmp",
+        temp(f"{dots_folder}/Dots_mustache_{{sample}}_{{resolution,[0-9]+}}.bedpe_tmp"),
     threads: 4
     params:
         args=config["dots"]["methods"]["mustache"]["extra"],
