@@ -18,4 +18,4 @@ rule make_pileups:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
     wrapper:
-        "v1.21.2/bio/coolpuppy"
+        "v2.0.0/bio/coolpuppy"

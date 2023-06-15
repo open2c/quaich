@@ -82,7 +82,7 @@ rule call_dots_cooltools:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
     wrapper:
-        "v1.21.2/bio/cooltools/dots"
+        "v2.0.0/bio/cooltools/dots"
 
 
 rule call_dots_chromosight:
