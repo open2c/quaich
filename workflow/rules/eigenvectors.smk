@@ -1,9 +1,9 @@
 rule make_compartments:
     input:
-        bigwig=f"{eigenvectors_folder}/{eig_profiles_folder}/{{sample}}_{{resolution}}_eigenvectors.{{mode}}.bw",
+        bigwig=f"{eig_profiles_folder}/{{sample}}_{{resolution}}_eigenvectors.{{mode}}.bw",
         view=lambda wildcards: config["view"],
     output:
-        compartments=f"{eigenvectors_folder}/compartments/{{sample}}_{{resolution,[0-9]+}}_compartments.{{mode}}.bed",
+        compartments=f"{compartments_folder}/{{sample}}_{{resolution,[0-9]+}}_compartments.{{mode}}.bed",
     threads: 1
     resources:
         mem_mb=1 * 1024,
