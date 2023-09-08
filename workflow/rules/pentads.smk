@@ -77,4 +77,4 @@ rule _make_pentad_components:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
         runtime=24 * 60,
     wrapper:
-        "v2.0.0/bio/coolpuppy"
+        "v2.6.0/bio/coolpuppy"

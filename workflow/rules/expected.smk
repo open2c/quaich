@@ -11,7 +11,7 @@ rule make_expected_cis:
         mem_mb=lambda wildcards, threads: threads * 8 * 1024,
         runtime=60,
     wrapper:
-        "v2.0.0/bio/cooltools/expected_cis"
+        "v2.6.0/bio/cooltools/expected_cis"
 
 
 rule make_expected_trans:
@@ -27,4 +27,4 @@ rule make_expected_trans:
         mem_mb=lambda wildcards, threads: threads * 8 * 1024,
         runtime=60,
     wrapper:
-        "v2.0.0/bio/cooltools/expected_trans"
+        "v2.6.0/bio/cooltools/expected_trans"

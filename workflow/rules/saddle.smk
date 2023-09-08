@@ -23,4 +23,4 @@ rule make_saddles:
         mem_mb=8 * 1024,
         runtime=60,
     wrapper:
-        "v1.23.1/bio/cooltools/saddle"
+        "v2.6.0/bio/cooltools/saddle"
