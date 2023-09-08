@@ -9,6 +9,8 @@ rule make_saddles:
     output:
         saddle=f"{saddles_folder}/{{sample}}_{{resolution,[0-9]+}}_over_{{sampleTrack}}_eig_{{bins,[0-9]+}}{{dist,.*}}.saddledump.npz",
         digitized_track=f"{saddles_folder}/{{sample}}_{{resolution,[0-9]+}}_over_{{sampleTrack}}_eig_{{bins,[0-9]+}}{{dist,.*}}.digitized.tsv",
+    log:
+        "logs/saddles/{sample}_{resolution}_{sampleTrack}_eig_{bins}{dist}.log",
     params:
         extra=lambda wildcards: " ".join(
             [

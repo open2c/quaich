@@ -56,6 +56,8 @@ rule merge_dots_across_resolutions:
         ],
     output:
         f"{dots_folder}/merged_resolutions/Dots_{{method}}_{{sample}}.bedpe",
+    log:
+        "logs/merge_dots_across_resolutions/{method}_{sample}.log",
     threads: 1
     resources:
         mem_mb=lambda wildcards, threads: 1024,
@@ -75,6 +77,8 @@ rule call_dots_cooltools:
         view=lambda wildcards: config["view"],
     output:
         f"{dots_folder}/Dots_cooltools_{{sample}}_{{resolution,[0-9]+}}.bedpe",
+    log:
+        "logs/call_dots_cooltools/{sample}_{resolution}.log",
     threads: 4
     params:
         extra=lambda wildcards: config["dots"]["methods"]["cooltools"]["extra"],
@@ -91,6 +95,8 @@ rule call_dots_chromosight:
     output:
         bedpe=f"{dots_folder}/Dots_chromosight_{{sample}}_{{resolution,[0-9]+}}.bedpe",
         json=f"{dots_folder}/Dots_chromosight_{{sample}}_{{resolution,[0-9]+}}.json",
+    log:
+        "logs/call_dots_chromosight/{sample}_{resolution}.log",
     threads: 4
     resources:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
@@ -107,6 +113,8 @@ rule call_dots_mustache:
         f"{dots_folder}/Dots_mustache_{{sample}}_{{resolution}}.bedpe_tmp",
     output:
         f"{dots_folder}/Dots_mustache_{{sample}}_{{resolution,[0-9]+}}.bedpe",
+    log:
+        "logs/call_dots_mustache/{sample}_{resolution}.log",
     shell:
         """TAB=$(printf '\t') && cat {input} | sed "1s/.*/chrom1${{TAB}}start1${{TAB}}end1${{TAB}}chrom2${{TAB}}start2${{TAB}}end2${{TAB}}FDR${{TAB}}detection_scale/" > {output}"""
 
@@ -116,6 +124,8 @@ rule _call_dots_mustache:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
     output:
         temp(f"{dots_folder}/Dots_mustache_{{sample}}_{{resolution,[0-9]+}}.bedpe_tmp"),
+    log:
+        "logs/_call_dots_mustache/{sample}_{resolution}.log",
     threads: 4
     params:
         args=config["dots"]["methods"]["mustache"]["extra"],

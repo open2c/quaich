@@ -11,6 +11,8 @@ rule make_differential_insulation:
         ),
     output:
         f"{boundaries_folder}/Diff_boundaries_{{sampleKO}}_vs_{{sampleWT}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.bed",
+    log:
+        "logs/make_differential_insulation/{sampleKO}_vs_{sampleWT}_{resolution}_{window}.log",
     threads: 1
     resources:
         mem_mb=1024,
@@ -44,6 +46,8 @@ rule make_tads:
         insulation=(f"{insulation_folder}/{{sample}}_{{resolution}}.insulation.tsv"),
     output:
         f"{tads_folder}/TADs_{{sample}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.bed",
+    log:
+        "logs/make_tads/{sample}_{resolution}_{window}.log",
     threads: 1
     resources:
         mem_mb=1024,
@@ -63,6 +67,8 @@ rule save_strong_boundaries:
         insulation=(f"{insulation_folder}/{{sample}}_{{resolution}}.insulation.tsv"),
     output:
         f"{boundaries_folder}/Boundaries_{{sample}}_{{resolution,[0-9]+}}_{{window,[0-9]+}}.bed",
+    log:
+        "logs/save_strong_boundaries/{sample}_{resolution}_{window}.log",
     threads: 1
     resources:
         mem_mb=1024,
@@ -81,6 +87,8 @@ rule make_insulation:
         view=lambda wildcards: config["view"],
     output:
         f"{insulation_folder}/{{sample}}_{{resolution,[0-9]+}}.insulation.tsv",
+    log:
+        "logs/make_insulation/{sample}_{resolution}.log",
     params:
         window=lambda wildcards: config["insulation"]["resolutions"][
             int(wildcards.resolution)

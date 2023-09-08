@@ -7,6 +7,8 @@ rule make_diff_pentads:
         pentads2=lambda wildcards: f"{pentads_folder}/{{sample2}}_{config['pentads']['data_resolution']}_over_compartments_{{sample_ref}}_{config['pentads']['eigenvector_resolution']}_{{norm}}_pentads.clpy",
     output:
         pantads_ratio=f"{pentads_folder}/diff/{{sample1}}_vs_{{sample2}}_{config['pentads']['data_resolution']}_over_compartments_{{sample_ref}}_{config['pentads']['eigenvector_resolution']}_{{norm}}_pentads.clpy",
+    log:
+        "logs/make_diff_pentads/{sample1}_vs_{sample2}_{sample_ref}_{norm}.log",
     wildcard_constraints:
         norm="(expected|nonorm|[0-9]+\-shifts)",
     threads: 1
@@ -36,6 +38,8 @@ rule make_pentads:
         pentads_distal=lambda wildcards: f"{pentads_folder}/{{sample}}_{config['pentads']['data_resolution']}_over_compartments_{{sample_ref}}_{config['pentads']['eigenvector_resolution']}_{{norm}}_distal_pentads.clpy",
     output:
         pentads=f"{pentads_folder}/{{sample}}_{config['pentads']['data_resolution']}_over_compartments_{{sample_ref}}_{config['pentads']['eigenvector_resolution']}_{{norm}}_pentads.clpy",
+    log:
+        "logs/make_pentads/{sample}_{sample_ref}_{norm}s.log",
     wildcard_constraints:
         norm="(expected|nonorm|[0-9]+\-shifts)",
     threads: 1
@@ -63,6 +67,8 @@ rule _make_pentad_components:
         temp(
             f"{pentads_folder}/{{sample}}_{{resolution}}_over_compartments_{{sample_ref}}_{{eigenvector_resolution}}_{{norm}}_{{mode}}_pentads.clpy"
         ),
+    log:
+        "logs/_make_pentad_components/{sample}_{sample_ref}_{resolution}_{eigenvector_resolution}_{norm}_{mode}.log",
     wildcard_constraints:
         norm="(expected|nonorm|[0-9]+\-shifts)",
         mode="(local|distal|trans)",

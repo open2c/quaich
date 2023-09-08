@@ -8,6 +8,8 @@ rule make_pileups:
         view=lambda wildcards: config["view"],
     output:
         f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{features}}_{{norm}}_{{extra,.*}}.clpy",
+    log:
+        "logs/make_pileups/{folder}_{sample}_{resolution}_{features}_{norm}_{extra}.log",
     wildcard_constraints:
         norm="(expected|nonorm|[0-9]+\-shifts)",
     params:

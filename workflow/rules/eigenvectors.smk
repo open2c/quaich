@@ -4,6 +4,8 @@ rule make_compartments:
         view=lambda wildcards: config["view"],
     output:
         compartments=f"{compartments_folder}/{{sample}}_{{resolution,[0-9]+}}_compartments.{{mode}}.bed",
+    log:
+        "logs/make_compartments/{sample}_{resolution}_{mode}.log",
     threads: 1
     resources:
         mem_mb=1 * 1024,
@@ -27,6 +29,8 @@ rule make_eigenvectors_cis:
         vecs=f"{eig_profiles_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.vecs.tsv",
         lam=f"{eig_profiles_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.lam.txt",
         bigwig=f"{eig_profiles_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.bw",
+    log:
+        "logs/make_eigenvectors_cis/{sample}_{resolution}.log",
     params:
         extra="--bigwig",
     threads: 1
@@ -49,6 +53,8 @@ rule make_eigenvectors_trans:
         vecs=f"{eig_profiles_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.trans.vecs.tsv",
         lam=f"{eig_profiles_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.trans.lam.txt",
         bigwig=f"{eig_profiles_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.trans.bw",
+    log:
+        "logs/make_eigenvectors_trans/{sample}_{resolution}.log",
     params:
         track_name_col="GC",
         extra="",
@@ -74,6 +80,8 @@ rule make_gc:
             "gc/",
             f"{genome}_{{resolution,[0-9]+}}_gc.bedgraph",
         ),
+    log:
+        "logs/make_gc/{resolution}.log",
     threads: 1
     resources:
         mem_mb=8 * 1024,
@@ -91,6 +99,8 @@ rule make_bins:
             "bins/",
             f"{genome}_{{resolution,[0-9]+}}_bins.bed",
         ),
+    log:
+        "logs/make_bins/{resolution}.log",
     threads: 1
     resources:
         mem_mb=8 * 1024,
