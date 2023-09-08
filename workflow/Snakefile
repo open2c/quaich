@@ -56,6 +56,11 @@ eig_profiles_folder = path.abspath(
         )
     )
 )
+compartments_folder = path.abspath(
+    path.normpath(
+        config.get("compartments_folder", path.join(project_folder, "compartments"))
+    )
+)
 saddles_folder = path.abspath(
     path.normpath(
         config.get("saddles_folder", path.join(eigenvectors_folder, "saddles"))

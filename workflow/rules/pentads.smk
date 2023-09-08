@@ -52,7 +52,7 @@ rule make_pentads:
 rule _make_pentad_components:
     input:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
-        features=lambda wildcards: f"{eig_profiles_folder}/{{sample_ref}}_{{eigenvector_resolution}}_compartments.cis.bed",
+        features=lambda wildcards: f"{compartments_folder}/{{sample_ref}}_{{eigenvector_resolution}}_compartments.cis.bed",
         expected=lambda wildcards: f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv"
         if wildcards.norm == "expected" and wildcards.mode != "trans"
         else f"{expected_folder}/{{sample}}_{{resolution}}.expected.trans.tsv"
