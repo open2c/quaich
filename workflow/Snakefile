@@ -482,11 +482,11 @@ if config["pileups"]["do"]:
 
 eigenvectors = (
     expand(
-        f"{eigenvectors_folder}/{eig_profiles_folder}/{{sample}}_{{resolution}}_eigenvectors.trans.{{ext}}",
+        f"{eig_profiles_folder}/{{sample}}_{{resolution}}_eigenvectors.{{mode}}.{{ext}}",
         sample=samples,
         resolution=eigenvector_resolutions,
         mode=["cis"],  # Add option to do trans in the future
-        ext=["vecs.tsv", "vecs.lam", "bw"],
+        ext=["vecs.tsv", "lam.txt", "bw"],
     )
     if config["eigenvectors"]["do"]
     else []
@@ -607,6 +607,8 @@ rule all:
         lambda wildcards: dots,
         lambda wildcards: dots_pileups,
         lambda wildcards: beds_pileups,
+        lambda wildcards: eigenvectors,
+        lambda wildcards: compartments,
         lambda wildcards: saddles,
         lambda wildcards: pentads,
         lambda wildcards: diff_pentads,
