@@ -1,5 +1,7 @@
 ###### Import libraries #######
 import os
+
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
 from os import path
 from glob import glob
 import itertools
@@ -160,13 +162,11 @@ for coolfile in samples_df[~samples_df["will_download"]].local_path:
 
 # Setting up pairwise comparisons
 sample_pairs = []
-
+groupers = config.get("fields_to_match", None)
+if groupers is None:
+    groupers = True
 if config["fields_to_differ"] is not None:
-    for name, group in samples_df.groupby(
-        lambda x: tuple(config["fields_to_match"])
-        if config["fields_to_match"] is not None
-        else True
-    ):
+    for name, group in samples_df.groupby(groupers):
         for sample1, sample2 in itertools.permutations(group.index, 2):
             if np.all(
                 samples_df.loc[
@@ -184,7 +184,6 @@ sample_pairs_string = [f"{s1}_vs_{s2}" for s1, s2 in sample_pairs]
 sample_pairs_string_with_reverse = sample_pairs_string + [
     f"{s2}_vs_{s1}" for s1, s2 in sample_pairs
 ]
-
 # Setting up annotation files
 bedfiles_local = get_files(beds_folder, "bed")
 bedpefiles_local = get_files(bedpes_folder, "bedpe")
@@ -599,6 +598,8 @@ if config["pentads"]["do_diff"]:
 rule all:
     input:
         lambda wildcards: expecteds,
+        lambda wildcards: insulation,
+        lambda wildcards: boundaries,
         lambda wildcards: diff_boundaries,
         lambda wildcards: diff_boundaries_pileups,
         lambda wildcards: tads,

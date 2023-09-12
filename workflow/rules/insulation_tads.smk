@@ -23,22 +23,38 @@ rule make_differential_insulation:
         insKO = pd.read_csv(input.insulation_KO, sep="\t")
         insKO = insKO[~insKO["is_bad_bin"]].drop(columns=["is_bad_bin"])
         ins = pd.merge(
-            insWT, insKO, suffixes=("WT", "KO"), on=["chrom", "start", "end"]
+            insWT,
+            insKO,
+            suffixes=(f"_{wildcards.sampleWT}", f"_{wildcards.sampleKO}"),
+            on=["chrom", "start", "end"],
+        )
+        ins = ins[ins[f"is_boundary_{wildcards.window}_{wildcards.sampleWT}"]]
+        ins["boundary_strength_fold_change"] = (
+            ins[f"boundary_strength_{wildcards.window}_{wildcards.sampleKO}"]
+            / ins[f"boundary_strength_{wildcards.window}_{wildcards.sampleWT}"]
         )
         diff_ins = ins[
             (  # Boundary much stronger in WT vs KO
-                ins[f"boundary_strength_{wildcards.window}WT"]
-                / ins[f"boundary_strength_{wildcards.window}KO"]
-                >= config["compare_boundaries"]["fold_change_threshold"]
+                ins["boundary_strength_fold_change"]
+                <= 1 / config["compare_boundaries"]["fold_change_threshold"]
             )
             | (  # OR there is a strong boundary in WT and not in KO
-                ins[f"is_boundary_{wildcards.window}WT"]
-                & ~ins[f"is_boundary_{wildcards.window}KO"]
+                ins[f"is_boundary_{wildcards.window}_{wildcards.sampleWT}"]
+                & ~ins[f"is_boundary_{wildcards.window}_{wildcards.sampleKO}"]
             )
         ]
-        diff_ins[["chrom", "start", "end"]].to_csv(
-            output[0], header=False, index=False, sep="\t"
-        )
+        diff_ins[
+            [
+                "chrom",
+                "start",
+                "end",
+                f"log2_insulation_score_{wildcards.window}_{wildcards.sampleWT}",
+                f"log2_insulation_score_{wildcards.window}_{wildcards.sampleKO}",
+                f"boundary_strength_{wildcards.window}_{wildcards.sampleWT}",
+                f"boundary_strength_{wildcards.window}_{wildcards.sampleKO}",
+                "boundary_strength_fold_change",
+            ]
+        ].to_csv(output[0], header=False, index=False, sep="\t")
 
 
 rule make_tads:
@@ -75,10 +91,10 @@ rule save_strong_boundaries:
         runtime=60,
     run:
         ins = pd.read_csv(input.insulation, sep="\t")
-        boundaries = ins.loc[
-            ins[f"is_boundary_{wildcards.window}"], ["chrom", "start", "end"]
-        ]
-        boundaries.to_csv(output[0], header=False, index=False, sep="\t")
+        boundaries = ins.loc[ins[f"is_boundary_{wildcards.window}"]]
+        boundaries[["chrom", "start", "end"]].to_csv(
+            output[0], header=False, index=False, sep="\t"
+        )
 
 
 rule make_insulation:
