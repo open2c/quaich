@@ -359,8 +359,9 @@ boundaries = (
 
 boundaries_pileups = (
     expand(
-        f"{pileups_folder}/{boundaries_folder_name}/{{sample}}-{{resolution}}_over_Boundaries_{{sample}}_{{resolution_window}}_{{norm}}_local.clpy",
+        f"{pileups_folder}/{boundaries_folder_name}/{{sample}}-{{resolution}}_over_Boundaries_{{sample_ref}}_{{resolution_window}}_{{norm}}_local.clpy",
         sample=samples,
+        sample_ref=samples,
         resolution=pileup_resolutions,
         resolution_window=insul_res_win_comb,
         norm=pileup_norms,
@@ -448,7 +449,7 @@ for file in dots:
     name = path.splitext(path.basename(file))[0]
     bedfiles_dict[name] = file
     bedtype_dict[name] = "bedpe"
-for file in tads + diff_boundaries:
+for file in tads + boundaries + diff_boundaries:
     name = path.splitext(path.basename(file))[0]
     bedfiles_dict[name] = file
     bedtype_dict[name] = "bed"
@@ -600,6 +601,7 @@ rule all:
         lambda wildcards: expecteds,
         lambda wildcards: insulation,
         lambda wildcards: boundaries,
+        lambda wildcards: boundaries_pileups,
         lambda wildcards: diff_boundaries,
         lambda wildcards: diff_boundaries_pileups,
         lambda wildcards: tads,
