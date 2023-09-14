@@ -137,3 +137,7 @@ resources/*
 inputs/*
 
 .DS_Store
+
+config/config.yml
+config/samples.tsv
+config/samples_annotations.tsv
