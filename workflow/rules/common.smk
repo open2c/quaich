@@ -1,4 +1,5 @@
 import toolz
+import cooler
 from cooltools.lib.io import read_viewframe_from_file
 
 
@@ -49,7 +50,8 @@ def get_mode_arg(mode):
         return ""
 
 
-def verify_view_cooler(clr):
+def verify_view_cooler(coolfile):
+    clr = cooler.Cooler(f"{coolfile}::{cooler.fileops.list_coolers(coolfile)[0]}")
     try:
         view = read_viewframe_from_file(
             config["view"], verify_cooler=clr, check_sorting=True

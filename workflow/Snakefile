@@ -5,7 +5,6 @@ os.environ["OPENBLAS_NUM_THREADS"] = "1"
 from os import path
 from glob import glob
 import itertools
-import cooler
 import numpy as np
 import pandas as pd
 import bioframe
@@ -156,9 +155,7 @@ coolfiles_dict = dict(samples_df["local_path"])
 # Downloaded coolers are verified against the view as part of the download rule
 # Here we check the rest
 for coolfile in samples_df[~samples_df["will_download"]].local_path:
-    verify_view_cooler(
-        cooler.Cooler(f"{coolfile}::{cooler.fileops.list_coolers(coolfile)[0]}")
-    )
+    verify_view_cooler(coolfile)
 
 # Setting up pairwise comparisons
 sample_pairs = []
