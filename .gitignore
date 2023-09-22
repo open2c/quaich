@@ -135,6 +135,7 @@ cluster_logs/*
 results/*
 resources/*
 inputs/*
+logs/*
 
 .DS_Store
 
