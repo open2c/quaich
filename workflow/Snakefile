@@ -215,7 +215,9 @@ else:
         + list(config["pileups"]["arguments"])
     )
 
-pileup_params = config["pileups"]["arguments"]
+pileup_params = {
+    key: val["pileup"] for key, val in config["pileups"]["arguments"].items()
+}
 
 bed_df[list(pileup_params.keys())] = ~bed_df[list(pileup_params.keys())].isna()
 
@@ -358,10 +360,23 @@ boundaries_pileups = (
     expand(
         f"{pileups_folder}/{boundaries_folder_name}/{{sample}}-{{resolution}}_over_Boundaries_{{sample_ref}}_{{resolution_window}}_{{norm}}_local.clpy",
         sample=samples,
-        sample_ref=samples,
         resolution=pileup_resolutions,
+        sample_ref=samples,
         resolution_window=insul_res_win_comb,
         norm=pileup_norms,
+    )
+    if (config["insulation"]["do"] and config["insulation"]["pileup"])
+    else []
+)
+
+boundaries_pileups_plots = (
+    expand(
+        f"{pileups_folder}/figures/{boundaries_folder_name}/Boundaries_{{sample_ref}}_{{resolution_window}}_compare_samples-{{resolution}}_{{norm}}_local.{{format}}",
+        sample_ref=samples,
+        resolution_window=insul_res_win_comb,
+        resolution=pileup_resolutions,
+        norm=pileup_norms,
+        format=config['figure_formats'],
     )
     if (config["insulation"]["do"] and config["insulation"]["pileup"])
     else []
@@ -412,6 +427,18 @@ tads_pileups = (
     if config["TADs"]["do"] and config["TADs"]["pileup"] and config["pileups"]["do"]
     else []
 )
+tads_pileups_plots = (
+    expand(
+        f"{pileups_folder}/figures/{tads_folder_name}/TADs_{{sample}}_{{tad_res_win}}_compare_samples-{{resolution}}_{{norm}}_local_rescaled.{{format}}",
+        sample=samples_df.index[samples_df["do_tads"]],
+        tad_res_win=tad_res_win_comb,
+        resolution=pileup_resolutions,
+        norm=pileup_norms,
+        format=config['figure_formats'],
+    )
+    if config["TADs"]["do"] and config["TADs"]["pileup"] and config["pileups"]["do"]
+    else []
+)
 
 # Dots and dot pileups
 dot_methods = [
@@ -419,7 +446,7 @@ dot_methods = [
 ]
 if dot_methods:
     dots = expand(
-        f"{dots_folder}/merged_resolutions/Dots_{{method}}_{{sampleDots}}.bedpe",
+        f"{dots_folder}/Dots_{{method}}_{{sampleDots}}.bedpe",
         method=dot_methods,
         sampleDots=samples_df.index[samples_df["do_dots"]],
     )
@@ -437,9 +464,23 @@ if dot_methods:
         if config["dots"]["pileup"] and config["pileups"]["do"]
         else []
     )
+
+    dots_pileups_plots = (
+        expand(
+            f"{pileups_folder}/figures/{dots_folder_name}/Dots_{{method}}_{{sampleDots}}_compare_samples-{{resolution}}_{{norm}}_distal.{{format}}",
+            method=dot_methods,
+            sampleDots=samples_df.index[samples_df["do_dots"]],
+            resolution=pileup_resolutions,
+            norm=pileup_norms,
+            format=config['figure_formats'],
+        )
+        if config["dots"]["pileup"] and config["pileups"]["do"]
+        else []
+    )
 else:
     dots = []
     dots_pileups = []
+    dots_pileups_plots = []
 
 # Setup file types for dot bedpes files and boundary/TAD beds
 for file in dots:
@@ -453,6 +494,8 @@ for file in tads + boundaries + diff_boundaries:
 
 # Pileups for annotation files
 beds_pileups = []
+beds_pileups_plots = []
+samples_to_use = {}
 if config["pileups"]["do"]:
     for bedname, row in bed_df.iterrows():
         folder = (
@@ -462,21 +505,42 @@ if config["pileups"]["do"]:
         for mode in pileup_params.keys():
             if row[mode]:
                 modes += [mode]
+        samples_to_use[bedname] = []
 
         for sample in samples:
-            if sample not in samples_annotations.index:
-                continue
             if (
                 bedname in samples_annotations.columns
-                and not samples_annotations.loc[sample, bedname]
+                and sample in samples_annotations.index
+                and samples_annotations.loc[sample, bedname]
             ):
+                samples_to_use[bedname].append(sample)
+            if len(samples_to_use[bedname]) == 0:
                 continue
-            beds_pileups += expand(
-                f"{pileups_folder}/{folder}/{sample}-{{resolution}}_over_{bedname}_{{norm}}_{{mode}}.clpy",
-                resolution=pileup_resolutions,
-                norm=pileup_norms,
-                mode=modes,
-            )
+        beds_pileups += expand(
+            f"{pileups_folder}/{folder}/{{sample}}-{{resolution}}_over_{bedname}_{{norm}}_{{mode}}.clpy",
+            sample=samples_to_use[bedname],
+            resolution=pileup_resolutions,
+            norm=pileup_norms,
+            mode=modes,
+        )
+        for mode in modes:
+            if config["pileups"]["arguments"][mode]["plot"].get(
+                "compare_samples", False
+            ):
+                beds_pileups_plots += expand(
+                    f"{pileups_folder}/figures/{folder}/{bedname}_compare_samples-{{resolution}}_{{norm}}_{mode}.{{format}}",
+                    resolution=pileup_resolutions,
+                    norm=pileup_norms,
+                    format=config['figure_formats'],
+                )
+            elif config["pileups"]["arguments"][mode]["plot"].get("individual", False):
+                beds_pileups_plots += expand(
+                    f"{pileups_folder}/figures/{folder}/{{sample}}_{bedname}_individual-{{resolution}}_{{norm}}_{mode}.{{format}}",
+                    sample=samples_to_use[bedname],
+                    resolution=pileup_resolutions,
+                    norm=pileup_norms,
+                    format=config['figure_formats'],
+                )
 
 eigenvectors = (
     expand(
@@ -599,13 +663,17 @@ rule all:
         lambda wildcards: insulation,
         lambda wildcards: boundaries,
         lambda wildcards: boundaries_pileups,
+        lambda wildcards: boundaries_pileups_plots,
         lambda wildcards: diff_boundaries,
         lambda wildcards: diff_boundaries_pileups,
         lambda wildcards: tads,
         lambda wildcards: tads_pileups,
+        lambda wildcards: tads_pileups_plots,
         lambda wildcards: dots,
         lambda wildcards: dots_pileups,
+        lambda wildcards: dots_pileups_plots,
         lambda wildcards: beds_pileups,
+        lambda wildcards: beds_pileups_plots,
         lambda wildcards: eigenvectors,
         lambda wildcards: compartments,
         lambda wildcards: saddles,

@@ -9,5 +9,5 @@ dependencies:
   - pip
   - natsort
   - pip:
-    - pomegranate
+    - pomegranate==0.14.8
     - https://github.com/Phlya/hmm_bigwigs/archive/refs/heads/master.zip

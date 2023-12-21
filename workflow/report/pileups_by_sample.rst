@@ -1,0 +1,1 @@
+Pileups by sample over **{{snakemake.wildcards.features}}** at {{snakemake.wildcards.resolution}} resolution, {{snakemake.wildcards.norm}} normalization, {{snakemake.wildcards.extra}} extra parameters
