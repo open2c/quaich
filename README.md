@@ -25,7 +25,7 @@ rule make_expected_cis:
         mem_mb=lambda wildcards, threads: threads * 8 * 1024,
         runtime=60,
     wrapper:
-        "v2.0.0/bio/cooltools/expected_cis"
+        "v2.2.1/bio/cooltools/expected_cis"
 ```
 
 `Quaich` groups similar rules together in config.yaml, which is read as a python dictionary by the Snakefile. Parameters for individual rules are passed as indented (key, value) pairs. For example, call_dots configures three methods of calling dots in Hi-C: cooltools,  chromosight, and mustache. The parameters for each specific rule are underneath, the shared parameters are below (in this case, the resolutions, and whether to generate pileups for the dot calls). `Do` always specifies if the workflow should attempt to produce the output for this rule. In most cases there is an `extra` argument, where any arbitrary command line arguments not exposed through the YAML can be passed to the underlying tool.

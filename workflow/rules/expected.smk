@@ -4,8 +4,10 @@ rule make_expected_cis:
         view=lambda wildcards: config["view"],
     output:
         f"{expected_folder}/{{sample}}_{{resolution,[0-9]+}}.expected.tsv",
+    benchmark:
+        "benchmarks/make_expected_cis/{sample}_{resolution,[0-9]+}.expected.cis.tsv"
     log:
-        "logs/make_expected_cis/{sample}_{resolution}.log",
+        "logs/make_expected_cis/{sample}_{resolution,[0-9]+}.expected.cis.tsv",
     params:
         extra=lambda wildcards: config["expected"]["extra_args_cis"],
     threads: 4
@@ -22,8 +24,10 @@ rule make_expected_trans:
         view=lambda wildcards: config["view"],
     output:
         f"{expected_folder}/{{sample}}_{{resolution,[0-9]+}}.expected.trans.tsv",
+    benchmark:
+        "benchmarks/make_expected_trans/{sample}_{resolution,[0-9]+}.expected.trans.tsv"
     log:
-        "logs/make_expected_trans/{sample}_{resolution}.log",
+        "logs/make_expected_trans/{sample}_{resolution,[0-9]+}.expected.trans.tsv",
     params:
         extra=lambda wildcards: config["expected"]["extra_args_trans"],
     threads: 4

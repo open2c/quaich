@@ -142,3 +142,6 @@ logs/*
 config/config.yml
 config/samples.tsv
 config/samples_annotations.tsv
+
+benchmarks/*
+logs/*

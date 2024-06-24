@@ -55,9 +55,11 @@ rule merge_dots_across_resolutions:
             for resolution in config["dots"]["resolutions"]
         ],
     output:
-        f"{dots_folder}/Dots_{{method}}_{{sample}}.bedpe",
+        f"{dots_folder}/merged_resolutions/Dots_{{method}}_{{sample}}.bedpe",
+    benchmark:
+        "benchmarks/merge_dots_across_resolutions/Dots_{method}_{sample}.tsv"
     log:
-        "logs/merge_dots_across_resolutions/{method}_{sample}.log",
+        "logs/merge_dots_across_resolutions/Dots_{method}_{sample}.tsv",
     threads: 1
     resources:
         mem_mb=lambda wildcards, threads: 1024,
@@ -77,8 +79,10 @@ rule call_dots_cooltools:
         view=lambda wildcards: config["view"],
     output:
         f"{dots_folder}/Dots_cooltools_{{sample}}_{{resolution,[0-9]+}}.bedpe",
+    benchmark:
+        "benchmarks/call_dots_cooltools/Dots_cooltools_{sample}_{resolution,[0-9]+}.tsv"
     log:
-        "logs/call_dots_cooltools/{sample}_{resolution}.log",
+        "logs/call_dots_cooltools/Dots_cooltools_{sample}_{resolution,[0-9]+}.tsv",
     threads: 4
     params:
         extra=lambda wildcards: config["dots"]["methods"]["cooltools"]["extra"],
@@ -95,8 +99,10 @@ rule call_dots_chromosight:
     output:
         bedpe=f"{dots_folder}/Dots_chromosight_{{sample}}_{{resolution,[0-9]+}}.bedpe",
         json=f"{dots_folder}/Dots_chromosight_{{sample}}_{{resolution,[0-9]+}}.json",
+    benchmark:
+        "benchmarks/call_dots_chromosight/Dots_chromosight_{sample}_{resolution,[0-9]+}.tsv"
     log:
-        "logs/call_dots_chromosight/{sample}_{resolution}.log",
+        "logs/call_dots_chromosight/Dots_chromosight_{sample}_{resolution,[0-9]+}.tsv",
     threads: 4
     resources:
         mem_mb=lambda wildcards, threads: threads * 16 * 1024,
@@ -104,7 +110,7 @@ rule call_dots_chromosight:
     conda:
         "../envs/chromosight_env.yml"
     shell:
-        f"chromosight detect --pattern loops --no-plotting -t {{threads}} {{input.cooler}}::resolutions/{{wildcards.resolution}} {dots_folder}/Dots_chromosight_{{wildcards.sample}}_{{wildcards.resolution}} && "
+        f"chromosight detect --pattern loops --no-plotting -t {{threads}} {{input.cooler}}::resolutions/{{wildcards.resolution}} {dots_folder}/Dots_chromosight_{{wildcards.sample}}_{{wildcards.resolution}} >{log[0]} 2>&1 && "
         f"mv {dots_folder}/Dots_chromosight_{{wildcards.sample}}_{{wildcards.resolution}}.tsv {{output.bedpe}}"
 
 
@@ -113,10 +119,12 @@ rule call_dots_mustache:
         f"{dots_folder}/Dots_mustache_{{sample}}_{{resolution}}.bedpe_tmp",
     output:
         f"{dots_folder}/Dots_mustache_{{sample}}_{{resolution,[0-9]+}}.bedpe",
-    log:
-        "logs/call_dots_mustache/{sample}_{resolution}.log",
+    benchmark:
+        "benchmarks/call_dots_mustache/Dots_mustache_{sample}_{resolution,[0-9]+}.tsv"
+    # log:
+    #     f"logs/call_dots_mustache/Dots_mustache_{{sample}}_{{resolution,[0-9]+}}.tsv",
     shell:
-        """TAB=$(printf '\t') && cat {input} | sed "1s/.*/chrom1${{TAB}}start1${{TAB}}end1${{TAB}}chrom2${{TAB}}start2${{TAB}}end2${{TAB}}FDR${{TAB}}detection_scale/" > {output}"""
+        """TAB=$(printf '\t') && cat {input} | sed "1s/.*/chrom1${{TAB}}start1${{TAB}}end1${{TAB}}chrom2${{TAB}}start2${{TAB}}end2${{TAB}}FDR${{TAB}}detection_scale/" > {output} """
 
 
 rule _call_dots_mustache:
@@ -124,8 +132,10 @@ rule _call_dots_mustache:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
     output:
         temp(f"{dots_folder}/Dots_mustache_{{sample}}_{{resolution,[0-9]+}}.bedpe_tmp"),
+    benchmark:
+        "benchmarks/_call_dots_mustache/Dots_mustache_{sample}_{resolution,[0-9]+}.tsv"
     log:
-        "logs/_call_dots_mustache/{sample}_{resolution}.log",
+        "logs/_call_dots_mustache/Dots_mustache_{sample}_{resolution,[0-9]+}.tsv",
     threads: 4
     params:
         args=config["dots"]["methods"]["mustache"]["extra"],
@@ -137,4 +147,4 @@ rule _call_dots_mustache:
         "../envs/mustache_env.yml"
     shell:
         f"python3 -m mustache -p {{threads}} -f {{input.cooler}} -r {{wildcards.resolution}} "
-        f"-d {{params.dist}} {{params.args}} -o {{output}}"
+        f"-d {{params.dist}} {{params.args}} -o {{output}} >{log[0]} 2>&1"

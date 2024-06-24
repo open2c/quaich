@@ -8,7 +8,7 @@ view: resources/test_view.txt
 # Samples file with two columns: sample name ("sample") and path/url with cool file ("file").
 # If it's URL, it will be downloaded. If the file is already downloaded it will not be overwritten.
 # The downloaded file will be stored as {coolers_folder}/{sample}.mcool
-samples: config/samples.tsv
+samples: config/test_samples.tsv
 # Setting up pairwise comparisons of samples
 # We just have two samples, so no need to ensure certain fields match, so we set this
 # setting to null
@@ -22,11 +22,11 @@ fields_to_differ:
 # Annotations file with two columns: annotation name ("bedname") and "file" (URLs or local file)
 # Downloaded bed files will be stored in beds_folder.
 # Provide nothing here if you don't want to use any annotations.
-annotations: config/annotations.tsv
+annotations: config/test_annotations.tsv
 
 # Rules about correpondence between samples and annotations can be specified here
 # Provide nothing here if all annotations apply to all samples.
-samples_annotations_combinations: config/samples_annotations.tsv
+samples_annotations_combinations: config/test_samples_annotations.tsv
 
 # folder definition is optional
 # by default everything is done using inputs in inputs/

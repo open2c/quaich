@@ -9,8 +9,10 @@ rule make_saddles:
     output:
         saddle=f"{saddles_folder}/{{sample}}_{{resolution,[0-9]+}}_over_{{sampleTrack}}_eig_{{bins,[0-9]+}}{{dist,.*}}.saddledump.npz",
         digitized_track=f"{saddles_folder}/{{sample}}_{{resolution,[0-9]+}}_over_{{sampleTrack}}_eig_{{bins,[0-9]+}}{{dist,.*}}.digitized.tsv",
+    benchmark:
+        "benchmarks/make_saddles/{sample}_{resolution,[0-9]+}_over_{sampleTrack}_eig_{bins,[0-9]+}{dist,.*}.tsv"
     log:
-        "logs/saddles/{sample}_{resolution}_{sampleTrack}_eig_{bins}{dist}.log",
+        "logs/make_saddles/{sample}}_{resolution,[0-9]+}_over_{sampleTrack}_eig_{bins,[0-9]+}{{dist,.*}.tsv",
     params:
         extra=lambda wildcards: " ".join(
             [

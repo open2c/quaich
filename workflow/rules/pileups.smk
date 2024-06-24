@@ -8,8 +8,10 @@ rule make_pileups:
         view=lambda wildcards: config["view"],
     output:
         f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{features}}_{{norm}}_{{extra,.*}}.clpy",
+    benchmark:
+        "benchmarks/make_pileups/{folder}/{sample}-{resolution,[0-9]+}_over_{features}_{norm}_{extra,.*}.tsv"
     log:
-        "logs/make_pileups/{folder}_{sample}_{resolution}_{features}_{norm}_{extra}.log",
+        "logs/make_pileups/{folder}/{sample}-{resolution,[0-9]+}_over_{features}_{norm}_{extra,.*}.tsv",
     wildcard_constraints:
         norm="(expected|nonorm|[0-9]+\-shifts)",
         sample="|".join(samples),
@@ -36,6 +38,8 @@ rule plot_pileups_individual:
         ),
     log:
         "logs/plot_pileups_individual/{sample}_{folder}_{resolution}_{features}_{norm}_{extra}_{ext}.log",
+    benchmark:
+        "benchmarks/plot_pileups_individual/{sample}_{folder}_{resolution}_{features}_{norm}_{extra}_{ext}.tsv"
     wildcard_constraints:
         norm="(expected|nonorm|[0-9]+\-shifts)",
         sample="|".join(samples),
@@ -71,6 +75,8 @@ rule plot_pileups_compare_samples:
         ),
     log:
         "logs/plot_pileups_compare_samples/{folder}_{resolution}_{features}_{norm}_{extra}_{ext}.log",
+    benchmark:
+        "benchmarks/plot_pileups_compare_samples/{folder}_{resolution}_{features}_{norm}_{extra}_{ext}.tsv"
     wildcard_constraints:
         norm="(expected|nonorm|[0-9]+\-shifts)",
     threads: 1

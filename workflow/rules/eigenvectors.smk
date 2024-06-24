@@ -4,8 +4,10 @@ rule make_compartments:
         view=lambda wildcards: config["view"],
     output:
         compartments=f"{compartments_folder}/{{sample}}_{{resolution,[0-9]+}}_compartments.{{mode}}.bed",
+    benchmark:
+        "benchmarks/make_compartments/{sample}_{resolution,[0-9]+}_compartments.{mode}.tsv"
     log:
-        "logs/make_compartments/{sample}_{resolution}_{mode}.log",
+        "logs/make_compartments/{sample}_{resolution,[0-9]+}_compartments.{{mode}.tsv",
     threads: 1
     resources:
         mem_mb=1 * 1024,
@@ -13,7 +15,7 @@ rule make_compartments:
     conda:
         "../envs/hmm_bigwigs_env.yml"
     shell:
-        f"bigwig_hmm.py -i {{input.bigwig}} --view {{input.view}} -n 2 -o {{output.compartments}}"
+        f"bigwig_hmm.py -i {{input.bigwig}} --view {{input.view}} -n 2 -o {{output.compartments}} >{log[0]} 2>&1"
 
 
 rule make_eigenvectors_cis:
@@ -29,16 +31,17 @@ rule make_eigenvectors_cis:
         vecs=f"{eig_profiles_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.vecs.tsv",
         lam=f"{eig_profiles_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.lam.txt",
         bigwig=f"{eig_profiles_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.cis.bw",
+    benchmark:
+        "benchmarks/make_eigenvectors_cis/{sample}_{resolution,[0-9]+}_eigenvectors.cis.tsv"
     log:
-        "logs/make_eigenvectors_cis/{sample}_{resolution}.log",
+        "logs/make_eigenvectors_cis/{sample}_{resolution,[0-9]+}_eigenvectors.cis.tsv",
     params:
         extra="--bigwig",
     threads: 1
     resources:
         mem_mb=8 * 1024,
         runtime=60,
-    wrapper:
-        "v2.6.0/bio/cooltools/eigs_cis"
+    wrapper:        "v2.6.0/bio/cooltools/eigs_cis"
 
 
 rule make_eigenvectors_trans:
@@ -53,8 +56,10 @@ rule make_eigenvectors_trans:
         vecs=f"{eig_profiles_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.trans.vecs.tsv",
         lam=f"{eig_profiles_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.trans.lam.txt",
         bigwig=f"{eig_profiles_folder}/{{sample}}_{{resolution,[0-9]+}}_eigenvectors.trans.bw",
+    benchmark:
+        "benchmarks/make_eigenvectors_trans/{sample}_{resolution,[0-9]+}_eigenvectors.trans.tsv"
     log:
-        "logs/make_eigenvectors_trans/{sample}_{resolution}.log",
+        "logs/make_eigenvectors_trans/{sample}_{resolution,[0-9]+}_eigenvectors.trans.tsv",
     params:
         track_name_col="GC",
         extra="",

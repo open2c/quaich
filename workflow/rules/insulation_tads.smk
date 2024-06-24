@@ -103,8 +103,10 @@ rule make_insulation:
         view=lambda wildcards: config["view"],
     output:
         f"{insulation_folder}/{{sample}}_{{resolution,[0-9]+}}.insulation.tsv",
+    benchmark:
+        f"benchmarks/make_insulation/{{sample}}_{{resolution,[0-9]+}}.insulation.tsv"
     log:
-        "logs/make_insulation/{sample}_{resolution}.log",
+        f"logs/make_insulation/{{sample}}_{{resolution,[0-9]+}}.insulation.tsv",
     params:
         window=lambda wildcards: config["insulation"]["resolutions"][
             int(wildcards.resolution)
