@@ -4,15 +4,10 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - python>=3.8
-  - mamba
-  - pip
+  - python
   - cython
   - snakemake
   - cooler
-  - ucsc-bedgraphtobigwig
-  - bioframe>=0.3.3
+  - cooltools
   - tqdm
   - toolz
-  - cooltools
-  - coolpuppy

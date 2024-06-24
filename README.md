@@ -105,8 +105,8 @@ Install Snakemake and other requirements using [conda](https://conda.io/projects
     conda env create -f workflow/envs/environment.yml
 
 This will create an environment `quaich` where you can launch the pipeline.
+This environment includes `snakemake`, so no need to install it separately.
 
-For Snakemake installation details, see the [instructions in the Snakemake documentation](https://snakemake.readthedocs.io/en/stable/getting_started/installation.html).
 
 ### Step 4: Execute workflow
 
