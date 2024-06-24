@@ -110,7 +110,7 @@ rule call_dots_chromosight:
     conda:
         "../envs/chromosight_env.yml"
     shell:
-        f"chromosight detect --pattern loops --no-plotting -t {{threads}} {{input.cooler}}::resolutions/{{wildcards.resolution}} {dots_folder}/Dots_chromosight_{{wildcards.sample}}_{{wildcards.resolution}} >{log[0]} 2>&1 && "
+        f"chromosight detect --pattern loops --no-plotting -t {{threads}} {{input.cooler}}::resolutions/{{wildcards.resolution}} {dots_folder}/Dots_chromosight_{{wildcards.sample}}_{{wildcards.resolution}} >{{log[0]}} 2>&1 && "
         f"mv {dots_folder}/Dots_chromosight_{{wildcards.sample}}_{{wildcards.resolution}}.tsv {{output.bedpe}}"
 
 
@@ -146,5 +146,5 @@ rule _call_dots_mustache:
     conda:
         "../envs/mustache_env.yml"
     shell:
-        f"python3 -m mustache -p {{threads}} -f {{input.cooler}} -r {{wildcards.resolution}} "
-        f"-d {{params.dist}} {{params.args}} -o {{output}} >{log[0]} 2>&1"
+        "python3 -m mustache -p {threads} -f {input.cooler} -r {wildcards.resolution} "
+        "-d {params.dist} {params.args} -o {output} >{log[0]} 2>&1"

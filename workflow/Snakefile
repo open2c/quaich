@@ -161,7 +161,7 @@ for coolfile in samples_df[~samples_df["will_download"]].local_path:
 sample_pairs = []
 groupers = config.get("fields_to_match", None)
 if groupers is None:
-    groupers = True
+    groupers = lambda x: True
 if config["fields_to_differ"] is not None:
     for name, group in samples_df.groupby(groupers):
         for sample1, sample2 in itertools.permutations(group.index, 2):
@@ -446,7 +446,7 @@ dot_methods = [
 ]
 if dot_methods:
     dots = expand(
-        f"{dots_folder}/Dots_{{method}}_{{sampleDots}}.bedpe",
+        f"{dots_folder}/merged_resolutions/Dots_{{method}}_{{sampleDots}}.bedpe",
         method=dot_methods,
         sampleDots=samples_df.index[samples_df["do_dots"]],
     )

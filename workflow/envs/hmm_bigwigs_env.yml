@@ -1,7 +1,7 @@
 name: hmm_bigwigs_env
 channels:
-  - bioconda
   - conda-forge
+  - bioconda
   - defaults
 dependencies:
   - python >=3.8,<3.11

@@ -1,7 +1,7 @@
 name: chromosight_env
 channels:
-  - bioconda
   - conda-forge
+  - bioconda
   - defaults
 dependencies:
   - coolpuppy

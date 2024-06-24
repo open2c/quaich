@@ -53,6 +53,10 @@ boundaries_folder: results/insulation/boundaries
 
 dots_folder: results/dots
 
+figure_formats:
+    - png
+    - pdf
+
 expected:
     do: True #If False, still will calculate them when needed by other rules
     cis: True
@@ -113,15 +117,36 @@ pileups:
     ooe: True #Only applies when expected is True
     arguments: # Different modes of pileups that can be applied to different annotation
                # .bed files, relationship defined in samples_annotations_combinations file above
-        distal: "--maxdist 1000000"
-        by_distance: "--by_distance"
-        local: "--local"
-        local_rescaled: '--local --rescale --rescale_pad 1'
-        by_strand_by_distance: "--by_strand --by_distance"
-        by_strand_local: "--by_strand --local"
-        by_strand_distal: "--by_strand --subset 10000 --maxdist 1000000"
-        by_window_short_range: "--by_window --subset 1000 --maxdist 2000000"
-        by_window_long_range:  "--by_window --subset 1000 --mindist 2000000"
+        distal:
+            pileup: "--maxdist 1000000"
+            plot:
+                compare_samples: "--cols sample --col_order 'hESCs HFF' --vmax 1.3"
+        by_distance:
+            pileup: "--by_distance"
+            plot:
+                compare_samples: "--cols sample --col_order 'hESCs HFF' --vmax 1.3"
+        local:
+            pileup: "--local"
+            plot:
+                compare_samples: "--cols sample --col_order 'hESCs HFF' --vmax 1.3"
+        local_rescaled:
+            pileup: '--local --rescale --rescale_pad 1'
+            plot:
+                compare_samples: "--cols sample --col_order 'hESCs HFF' --vmax 1.3"
+        by_strand_by_distance:
+            pileup: "--by_strand --by_distance"
+            plot:
+                individual: "--cols separation --rows orientation"
+                compare_samples: >-
+                    --cols separation --rows sample --row_order 'hESCs HFF' --query 'orientation == "-+"' --vmax 1.5
+        by_strand_local:
+            pileup: "--by_strand --local"
+            plot:
+                compare_samples: "--cols sample --col_order 'hESCs HFF' --rows 'orientation' --row_order '-+ ++ -- +-' --vmax 1.3"
+        by_strand_distal:
+            pileup: "--by_strand --subset 10000 --maxdist 1000000"
+            plot:
+                compare_samples: "--cols sample --col_order 'hESCs HFF' --rows 'orientation' --row_order '-+ ++ -- +-' --vmax 1.3"
 
 # Parameters for calling dots/loops, using different methods
 dots:

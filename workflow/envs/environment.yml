@@ -1,10 +1,10 @@
 name: quaich
 channels:
-  - bioconda
   - conda-forge
+  - bioconda
   - defaults
 dependencies:
-  - python
+  - python<3.12
   - cython
   - snakemake
   - cooler

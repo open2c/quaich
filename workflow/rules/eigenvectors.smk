@@ -15,7 +15,7 @@ rule make_compartments:
     conda:
         "../envs/hmm_bigwigs_env.yml"
     shell:
-        f"bigwig_hmm.py -i {{input.bigwig}} --view {{input.view}} -n 2 -o {{output.compartments}} >{log[0]} 2>&1"
+        "bigwig_hmm.py -i {input.bigwig} --view {input.view} -n 2 -o {output.compartments} >{log[0]} 2>&1"
 
 
 rule make_eigenvectors_cis:
