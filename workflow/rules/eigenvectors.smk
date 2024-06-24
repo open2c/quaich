@@ -41,7 +41,7 @@ rule make_eigenvectors_cis:
     resources:
         mem_mb=8 * 1024,
         runtime=60,
-    wrapper:        "v2.6.0/bio/cooltools/eigs_cis"
+    wrapper:        "v3.12.2/bio/cooltools/eigs_cis"
 
 
 rule make_eigenvectors_trans:
@@ -68,7 +68,7 @@ rule make_eigenvectors_trans:
         mem_mb=8 * 1024,
         runtime=60,
     wrapper:
-        "v2.6.0/bio/cooltools/eigs_trans"
+        "v3.12.2/bio/cooltools/eigs_trans"
 
 
 rule make_gc:
@@ -92,7 +92,7 @@ rule make_gc:
         mem_mb=8 * 1024,
         runtime=60,
     wrapper:
-        "v2.6.0/bio/cooltools/genome/gc"
+        "v3.12.2/bio/cooltools/genome/gc"
 
 
 rule make_bins:
@@ -113,4 +113,4 @@ rule make_bins:
     params:
         binsize=lambda wildcards: wildcards["resolution"],
     wrapper:
-        "v2.6.0/bio/cooltools/genome/binnify"
+        "v3.12.2/bio/cooltools/genome/binnify"
