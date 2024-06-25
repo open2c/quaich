@@ -50,8 +50,7 @@ def get_mode_arg(mode):
         return ""
 
 
-def verify_view_cooler(coolfile):
-    clr = cooler.Cooler(f"{coolfile}::{cooler.fileops.list_coolers(coolfile)[0]}")
+def verify_view_cooler(clr):
     try:
         view = read_viewframe_from_file(
             config["view"], verify_cooler=clr, check_sorting=True

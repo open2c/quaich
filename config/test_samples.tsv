@@ -1,3 +1,3 @@
 sample	file	cell_type	do_dots	do_tads
-test_cool_HFF	https://osf.io/3h9js/download	HFF	true	true
-test_cool_ESC	https://osf.io/3kdyj/download	hESCs	true	true
+HFF	https://osf.io/3h9js/download	HFF	true	true
+ESC	https://osf.io/3kdyj/download	hESCs	true	true

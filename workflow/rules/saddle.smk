@@ -12,7 +12,7 @@ rule make_saddles:
     benchmark:
         "benchmarks/make_saddles/{sample}_{resolution,[0-9]+}_over_{sampleTrack}_eig_{bins,[0-9]+}{dist,.*}.tsv"
     log:
-        "logs/make_saddles/{sample}}_{resolution,[0-9]+}_over_{sampleTrack}_eig_{bins,[0-9]+}{{dist,.*}.tsv",
+        "logs/make_saddles/{sample}_{resolution,[0-9]+}_over_{sampleTrack}_eig_{bins,[0-9]+}{dist,.*}.tsv",
     params:
         extra=lambda wildcards: " ".join(
             [
