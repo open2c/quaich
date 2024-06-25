@@ -7,7 +7,7 @@ rule make_compartments:
     benchmark:
         "benchmarks/make_compartments/{sample}_{resolution,[0-9]+}_compartments.{mode}.tsv"
     log:
-        "logs/make_compartments/{sample}_{resolution,[0-9]+}_compartments.{{mode}.tsv",
+        "logs/make_compartments/{sample}_{resolution,[0-9]+}_compartments.{mode}.tsv",
     threads: 1
     resources:
         mem_mb=1 * 1024,
@@ -41,7 +41,8 @@ rule make_eigenvectors_cis:
     resources:
         mem_mb=8 * 1024,
         runtime=60,
-    wrapper:        "v3.12.2/bio/cooltools/eigs_cis"
+    wrapper:
+        "v3.12.2/bio/cooltools/eigs_cis"
 
 
 rule make_eigenvectors_trans:
