@@ -4,10 +4,10 @@ channels:
   - bioconda
   - defaults
 dependencies:
-  - python >=3.8,<3.11
+  - python ==3.8
   - dataclasses
   - pip
   - natsort
+  - pomegranate==0.14.8
   - pip:
-    - pomegranate==0.14.8
     - https://github.com/Phlya/hmm_bigwigs/archive/refs/heads/master.zip
