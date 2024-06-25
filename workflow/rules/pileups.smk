@@ -2,9 +2,11 @@ rule make_pileups:
     input:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
         features=lambda wildcards: bedfiles_dict[wildcards.features],
-        expected=lambda wildcards: f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv"
-        if wildcards.norm == "expected"
-        else [],
+        expected=lambda wildcards: (
+            f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv"
+            if wildcards.norm == "expected"
+            else []
+        ),
         view=lambda wildcards: config["view"],
     output:
         f"{pileups_folder}/{{folder}}/{{sample}}-{{resolution,[0-9]+}}_over_{{features}}_{{norm}}_{{extra,.*}}.clpy",
@@ -74,9 +76,9 @@ rule plot_pileups_compare_samples:
             subcategory="{folder}",
         ),
     log:
-        "logs/plot_pileups_compare_samples/{folder}_{resolution}_{features}_{norm}_{extra}_{ext}.log",
+        "logs/plot_pileups_compare_samples/{folder}_{features}_compare_samples-{resolution}_{norm}_{extra,.*}.{ext}.log",
     benchmark:
-        "benchmarks/plot_pileups_compare_samples/{folder}_{resolution}_{features}_{norm}_{extra}_{ext}.tsv"
+        "benchmarks/plot_pileups_compare_samples/{folder}_{features}_compare_samples-{resolution}_{norm}_{extra,.*}.{ext}.tsv"
     wildcard_constraints:
         norm="(expected|nonorm|[0-9]+\-shifts)",
     threads: 1

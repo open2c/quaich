@@ -55,7 +55,7 @@ rule merge_dots_across_resolutions:
             for resolution in config["dots"]["resolutions"]
         ],
     output:
-        f"{dots_folder}/merged_resolutions/Dots_{{method}}_{{sample}}.bedpe",
+        f"{dots_folder}/Dots_{{method}}_{{sample}}.bedpe",
     benchmark:
         "benchmarks/merge_dots_across_resolutions/Dots_{method}_{sample}.tsv"
     log:

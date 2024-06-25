@@ -446,7 +446,7 @@ dot_methods = [
 ]
 if dot_methods:
     dots = expand(
-        f"{dots_folder}/merged_resolutions/Dots_{{method}}_{{sampleDots}}.bedpe",
+        f"{dots_folder}/Dots_{{method}}_{{sampleDots}}.bedpe",
         method=dot_methods,
         sampleDots=samples_df.index[samples_df["do_dots"]],
     )
