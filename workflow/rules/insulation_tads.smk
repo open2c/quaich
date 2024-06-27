@@ -117,4 +117,4 @@ rule make_insulation:
         mem_mb=32 * 1024,
         runtime=240,
     wrapper:
-        "v3.12.2/bio/cooltools/insulation"
+        "v3.13.1/bio/cooltools/insulation"
