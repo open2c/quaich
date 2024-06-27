@@ -6,31 +6,25 @@ rule make_diff_pentads:
         pentads1=lambda wildcards: f"{pentads_folder}/{{sample1}}_{config['pentads']['data_resolution']}_over_compartments_{{sample_ref}}_{config['pentads']['eigenvector_resolution']}_{{norm}}_pentads.clpy",
         pentads2=lambda wildcards: f"{pentads_folder}/{{sample2}}_{config['pentads']['data_resolution']}_over_compartments_{{sample_ref}}_{config['pentads']['eigenvector_resolution']}_{{norm}}_pentads.clpy",
     output:
-        pantads_ratio=f"{pentads_folder}/diff/{{sample1}}_vs_{{sample2}}_{config['pentads']['data_resolution']}_over_compartments_{{sample_ref}}_{config['pentads']['eigenvector_resolution']}_{{norm}}_pentads.clpy",
+        pentads_ratio=f"{pentads_folder}/diff/{{sample1}}_vs_{{sample2}}_{config['pentads']['data_resolution']}_over_compartments_{{sample_ref}}_{config['pentads']['eigenvector_resolution']}_{{norm}}_pentads.clpy",
     benchmark:
         f"benchmarks/make_diff_pentads/{{sample1}}_vs_{{sample2}}_{config['pentads']['data_resolution']}_over_compartments_{{sample_ref}}_{config['pentads']['eigenvector_resolution']}_{{norm}}_pentads.tsv"
     log:
         f"logs/make_diff_pentads/{{sample1}}_vs_{{sample2}}_{config['pentads']['data_resolution']}_over_compartments_{{sample_ref}}_{config['pentads']['eigenvector_resolution']}_{{norm}}_pentads.tsv",
     wildcard_constraints:
         norm="(expected|nonorm|[0-9]+\-shifts)",
+    params:
+        groupby=config["pentads"].get("groupby", []),
     threads: 1
     resources:
         mem_mb=lambda wildcards: 512,
         runtime=24 * 60,
-    run:
-        from coolpuppy.lib import io as cpio
-
-        pentads1 = cpio.load_pileup_df(input.pentads1)
-        pentads2 = cpio.load_pileup_df(input.pentads2)
-        merged = pentads1.merge(
-            pentads2,
-            on=["name1", "name2", "local"] + config["pentads"]["groupby"],
-            suffixes=["_1", "_2"],
-        )
-        merged["data"] = merged["data_1"] / merged["data_2"]
-        merged["store_stripes"] = merged["store_stripes_1"]
-        merged = merged.drop(columns=["store_stripes_1", "store_stripes_2"])
-        cpio.save_pileup_df(output.pantads_ratio, merged)
+    conda:
+        "../envs/coolpuppy_env.yml"
+    shell:
+        """
+        python3 workflow/scripts/differential_pentads.py -i1 {input.pentads1} -i2 {input.pentads2} --groupby {params.groupby} -o {output.pentads_ratio}
+        """
 
 
 # Merges different pentad squares into one file
@@ -50,22 +44,27 @@ rule make_pentads:
     resources:
         mem_mb=lambda wildcards: 512,
         runtime=24 * 60,
-    run:
-        from coolpuppy.lib import io as cpio
-
-        pentads = cpio.load_pileup_df_list([input.pentads_local, input.pentads_distal])
-        cpio.save_pileup_df(output.pentads, pentads)
+    conda:
+        "../envs/coolpuppy_env.yml"
+    shell:
+        """
+        python3 workflow/scripts/merge_pileups.py -i {input.pentads_local} {input.pentads_distal} -o {output.pentads}
+        """
 
 
 rule _make_pentad_components:
     input:
         cooler=lambda wildcards: coolfiles_dict[wildcards.sample],
         features=lambda wildcards: f"{compartments_folder}/{{sample_ref}}_{{eigenvector_resolution}}_compartments.cis.bed",
-        expected=lambda wildcards: f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv"
-        if wildcards.norm == "expected" and wildcards.mode != "trans"
-        else f"{expected_folder}/{{sample}}_{{resolution}}.expected.trans.tsv"
-        if wildcards.norm == "expected" and wildcards.mode == "trans"
-        else [],
+        expected=lambda wildcards: (
+            f"{expected_folder}/{{sample}}_{{resolution}}.expected.tsv"
+            if wildcards.norm == "expected" and wildcards.mode != "trans"
+            else (
+                f"{expected_folder}/{{sample}}_{{resolution}}.expected.trans.tsv"
+                if wildcards.norm == "expected" and wildcards.mode == "trans"
+                else []
+            )
+        ),
         view=lambda wildcards: config["view"],  # if wildcards.norm == "expected" else [],
     output:
         temp(
@@ -74,7 +73,7 @@ rule _make_pentad_components:
     benchmark:
         "benchmarks/_make_pentad_components/{sample}}_{resolution}_over_compartments_{sample_ref}_{eigenvector_resolution}_{norm}_{mode}_pentads.tsv"
     log:
-        "logs/_make_pentad_components/{sample}}_{resolution}_over_compartments_{sample_ref}_{eigenvector_resolution}_{norm}_{mode}_pentads.tsv",
+        "logs/_make_pentad_components/{sample}_{resolution}_over_compartments_{sample_ref}_{eigenvector_resolution}_{norm}_{mode}_pentads.tsv",
     wildcard_constraints:
         norm="(expected|nonorm|[0-9]+\-shifts)",
         mode="(local|distal|trans)",
